@@ -5822,11 +5822,11 @@ function GanttTree({ user, users, roots, map, tasks, projects, expandedRows, onT
         <tr 
           onClick={() => !isProject && children.length > 0 && onToggleExpand(task.id)}
           className={cn(
-            "border-b border-white/5 transition-all group cursor-pointer",
+            "border-b border-white/5 transition-all group cursor-pointer hover:bg-white/5",
             level === 0 ? "bg-slate-900/40" : "bg-slate-800/10",
-            level === 1 && isExpanded ? "bg-slate-800/50" : "hover:bg-white/[0.02]",
-            health === 'OVERDUE' && "border-l-4 border-l-rose-500 bg-rose-500/5",
-            health === 'OVER SLA' && "border-l-4 border-l-amber-500 bg-amber-500/5"
+            level === 1 && isExpanded ? "bg-slate-800/60" : "hover:bg-white/10",
+            health === 'OVERDUE' && "border-l-4 border-l-rose-500 bg-rose-500/10",
+            health === 'OVER SLA' && "border-l-4 border-l-amber-500 bg-amber-500/10"
           )}
         >
           {/* Node Selector / Title */}
@@ -5836,11 +5836,17 @@ function GanttTree({ user, users, roots, map, tasks, projects, expandedRows, onT
               level === 1 ? "pl-10" : level > 1 ? "pl-16" : "pl-0"
             )}>
               {(isProject || children.length > 0) && (
-                <span className="text-indigo-500 font-mono w-4" onClick={() => onToggleExpand(task.id)}>
+                <span className="text-cyan-400 font-mono w-4 flex items-center justify-center" onClick={() => onToggleExpand(task.id)}>
                   {isExpanded ? "▼" : "▶"}
                 </span>
               )}
-              {isProject ? <FolderKanban className="w-4 h-4 text-indigo-400" /> : level > 0 ? <span className="text-indigo-500/60 font-black text-lg select-none leading-none">↳</span> : <Layers className="w-4 h-4 text-slate-500" />}
+              {isProject ? (
+                <FolderKanban className="w-5 h-5 text-indigo-400" />
+              ) : level > 0 ? (
+                <span className="text-cyan-500 font-black text-xl select-none leading-none">↳</span>
+              ) : (
+                <Layers className="w-4 h-4 text-purple-400" />
+              )}
               <div className="flex-1 min-w-0" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center gap-2">
                   {task.custom_id && (
@@ -5851,7 +5857,12 @@ function GanttTree({ user, users, roots, map, tasks, projects, expandedRows, onT
                   <EditableInput 
                     value={task.title} 
                     onSave={(v) => onUpdateTask(task.id, 'title', v)}
-                    className="text-xs font-black text-white italic truncate tracking-tight uppercase bg-transparent outline-none border-none focus:ring-1 focus:ring-emerald-500 w-full"
+                    className={cn(
+                      "bg-transparent outline-none border-none focus:ring-1 focus:ring-emerald-500 w-full truncate leading-relaxed",
+                      isProject ? "text-base font-bold uppercase text-white tracking-tight" : 
+                      (task.level === 1 || level === 0) ? "text-zinc-100 font-semibold italic text-sm tracking-tight" :
+                      "text-zinc-200 text-xs font-medium tracking-wider"
+                    )}
                     placeholder="ENTER TASK NAME..."
                     disabled={disabled}
                   />
@@ -6180,15 +6191,20 @@ function TemporalVisualizer({ user, scale, tasks, projectId, hierarchicalTasks, 
                       <div 
                         onClick={() => onToggleExpand(root.id)}
                         className={cn(
-                          "flex items-center px-6 border-b border-white/[0.02] text-slate-100 font-black text-[10px] uppercase truncate tracking-widest cursor-pointer hover:bg-indigo-600/5 transition-all group border-l-4 border-l-transparent",
-                          isExpanded && "border-l-indigo-600 bg-indigo-600/[0.02]",
+                          "flex items-center px-6 border-b border-white/5 truncate tracking-widest cursor-pointer hover:bg-white/5 transition-all group border-l-4 border-l-transparent",
+                          isExpanded && "border-l-indigo-600 bg-white/[0.02]",
                           isGlobalView ? "h-[64px]" : "h-[56px]"
                         )}
                       >
-                        <div className="mr-3 text-indigo-500/50 group-hover:text-indigo-400 transition-colors">
-                          {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                        <div className="mr-3 text-cyan-400 group-hover:text-cyan-300 transition-colors">
+                          {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                         </div>
-                        <span className="truncate">{root.title || root.custom_id}</span>
+                        <span className={cn(
+                          "truncate",
+                          isGlobalView ? "text-base font-bold uppercase text-white tracking-tight" : "text-sm font-semibold italic text-zinc-100 tracking-tight"
+                        )}>
+                          {root.title || root.custom_id}
+                        </span>
                       </div>
                       
                       {isExpanded && (() => {
@@ -6201,13 +6217,19 @@ function TemporalVisualizer({ user, scale, tasks, projectId, hierarchicalTasks, 
                               <div 
                                 onClick={() => onToggleExpand(child.id)}
                                 className={cn(
-                                  "h-[48px] flex items-center px-6 pl-12 border-b border-white/[0.01] text-slate-400 text-[9px] font-bold truncate italic cursor-pointer hover:bg-white/5 transition-colors group"
+                                  "h-[48px] flex items-center px-6 pl-12 border-b border-white/[0.02] cursor-pointer hover:bg-white/5 transition-colors group"
                                 )}
                               >
-                                <div className="mr-2 opacity-50 group-hover:opacity-100">
-                                  {(child.children && child.children.length > 0) ? (isChildExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />) : null}
+                                <div className="mr-2 text-purple-400 opacity-60 group-hover:opacity-100">
+                                  {(child.children && child.children.length > 0) ? (isChildExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />) : null}
                                 </div>
-                                <span className="opacity-60 mr-1.5">↳</span> {child.title || child.custom_id}
+                                <span className="text-cyan-500 font-black text-lg mr-2 select-none">↳</span>
+                                <span className={cn(
+                                  "truncate",
+                                  isGlobalView ? "text-sm font-semibold italic text-zinc-100 tracking-tight" : "text-xs font-medium text-zinc-200 tracking-wider"
+                                )}>
+                                  {child.title || child.custom_id}
+                                </span>
                               </div>
                               
                               {isChildExpanded && (() => {
@@ -6215,8 +6237,11 @@ function TemporalVisualizer({ user, scale, tasks, projectId, hierarchicalTasks, 
                                  return uniqueSubs.map((sub: any, sIdx: number) => {
                                    const subKey = `${sub.custom_id || sub.id}-${sIdx}`;
                                    return (
-                                     <div key={subKey} className="h-[40px] flex items-center px-6 pl-16 border-b border-white/[0.005] text-slate-500 text-[8px] font-medium truncate opacity-70">
-                                        <span className="opacity-40 mr-1.5">↳</span> {sub.title || sub.custom_id}
+                                     <div key={subKey} className="h-[40px] flex items-center px-6 pl-16 border-b border-white/[0.01] hover:bg-white/[0.02] transition-colors group">
+                                        <span className="text-purple-500 font-black text-lg mr-2 select-none opacity-60 group-hover:opacity-100">↳</span>
+                                        <span className="text-zinc-200 text-xs font-medium tracking-wider truncate">
+                                          {sub.title || sub.custom_id}
+                                        </span>
                                      </div>
                                    );
                                  });
