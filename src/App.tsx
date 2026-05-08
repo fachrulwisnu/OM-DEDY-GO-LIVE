@@ -1367,7 +1367,7 @@ export default function App() {
       { id: 'GANTT_DETAIL', label: 'Om Dedy Timeline', icon: Activity },
       { id: 'KANBAN', label: 'Status Monitoring', icon: LayoutGrid },
       { id: 'SCHEDULE', label: 'Om Dedy Schedule', icon: Calendar },
-      { id: 'RESCHEDULE', label: 'Reschedule Om Dedy', icon: History },
+      { id: 'RESCHEDULE', label: 'APPROVALS', icon: History },
       { id: 'PERSONEL', label: 'Personel OM DEDY', icon: Users },
       { id: 'AUDIT', label: 'System Audit Logs', icon: ShieldAlert },
     ];
@@ -3373,32 +3373,8 @@ function OmDedySchedule({ user, users, setActiveView, isAdmin, isSuperadmin, set
 
     const currentStatus = scheduleGrid[pic]?.[date] || '';
     
-    // RBAC Guard: Public users (not logged in) can VIEW but not EDIT
-    if (!user) return;
-
-    // Ownership check: If not owner, show warning modal
-    const isOwner = fullName === pic;
-    if (!isOwner && !isAdmin && !isSuperadmin) {
-      setOwnershipModal({
-        isOpen: true,
-        picName: pic,
-        itemName: `Jadwal ${date}`,
-        type: 'schedule',
-        onCancel: () => {
-          setOwnershipModal(prev => ({ ...prev, isOpen: false }));
-          setEditingCell(null);
-        },
-        onConfirm: async () => {
-          setOwnershipModal(prev => ({ ...prev, isOpen: false }));
-          setRequestModal({ pic, date, currentStatus, newStatus: status });
-        }
-      });
-      return;
-    }
-
-    // Persistence: onBlur/onChange in grid triggers immediate update
-    // For schedules, we use the Request Modal to allow justification, but for immediate persistence we can bypass if user is Admin/Owner
-    if (isAdmin || isSuperadmin || isOwner) {
+    // Admin/Superadmin can update directly without approval
+    if (isAdmin || isSuperadmin) {
        try {
          await taskService.upsertSchedules([{ pic_name: pic, schedule_date: date, status: status }]);
          fetchSchedules();
@@ -3407,6 +3383,7 @@ function OmDedySchedule({ user, users, setActiveView, isAdmin, isSuperadmin, set
          console.error("Failed to update schedule:", err);
        }
     } else {
+      // Regular PICs (including owners) must go through the Approval Gate
       setRequestModal({ pic, date, currentStatus, newStatus: status });
     }
     setEditingCell(null);
@@ -3917,7 +3894,7 @@ function OmDedySchedule({ user, users, setActiveView, isAdmin, isSuperadmin, set
                         };
 
                         await taskService.createRescheduleRequest(payload);
-                        alert('Permohonan telah dikirim. Menunggu persetujuan Admin.');
+                        onNotif?.("Request submitted for approval.");
                         setRequestModal(null);
                         fetchSchedules();
                       } catch (err: any) {
@@ -3950,7 +3927,7 @@ function OmDedySchedule({ user, users, setActiveView, isAdmin, isSuperadmin, set
                     <History className="w-6 h-6 text-amber-500" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black text-white italic italic uppercase tracking-tight">Om Dedy: Reschedule Approval</h3>
+                    <h3 className="text-xl font-black text-white italic uppercase tracking-tight">Om Dedy: APPROVAL MENU</h3>
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Incoming and Pending Requests</p>
                   </div>
                 </div>
@@ -5316,13 +5293,13 @@ function RescheduleRequestsView({ requests, onRefresh, user }: { requests: any[]
   const [activeTab, setActiveTab] = useState<'PENDING' | 'HISTORY'>('PENDING');
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  if (!user || (user.access_level?.toLowerCase() !== 'superadmin' && user.access_level?.toLowerCase() !== 'admin')) {
+  if (!user || (!user.access_level?.toLowerCase().includes('admin'))) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center space-y-4">
           <ShieldAlert className="w-16 h-16 text-rose-500 mx-auto" />
           <h2 className="text-2xl font-black text-white uppercase italic">Unauthorized Access</h2>
-          <p className="text-slate-500">You do not have permission to access this module (Reschedule Om Dedy).</p>
+          <p className="text-slate-500">You do not have permission to access the Approval Menu.</p>
         </div>
       </div>
     );
@@ -5386,8 +5363,8 @@ function RescheduleRequestsView({ requests, onRefresh, user }: { requests: any[]
             <History className="w-7 h-7 text-amber-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-white tracking-tighter italic uppercase">Reschedule Om Dedy</h2>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Personnel Swap Request Management</p>
+            <h2 className="text-2xl font-black text-white tracking-tighter italic uppercase">APPROVAL MENU</h2>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Status Change Requests</p>
           </div>
         </div>
 
