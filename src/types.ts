@@ -66,6 +66,7 @@ export interface Task {
   suggestion_barra: string | null;
   created_at: string;
   updated_at: string;
+  level?: number;
 }
 
 export interface AuditLog {

@@ -913,9 +913,13 @@ export default function App() {
         taskService.getAllTasks(),
         taskService.getAuditLogs()
       ]);
+      const processedTasks = (t || []).map(task => ({
+        ...task,
+        level: task.parent_id ? 2 : 1
+      }));
       setProjects(p || []);
       setUsers(u || []);
-      setTasks(t || []);
+      setTasks(processedTasks);
       setAllAuditLogs(a || []);
     } catch (err) {
       console.error("Fetch failed:", err);
@@ -970,9 +974,17 @@ export default function App() {
     bootstrap();
   }, [loading, users.length]);
 
-  const currentProject = useMemo(() => 
-    (projects || []).find(p => p.id === selectedProjectId), 
-  [projects, selectedProjectId]);
+  const projectHeaderStats = useMemo(() => {
+    if (!selectedProjectId) return { totalHours: 0, project: null };
+    const p = (projects || []).find(prj => prj.id === selectedProjectId);
+    const pTasks = (tasks || []).filter(t => t.project_id === selectedProjectId);
+    const totalHours = pTasks
+      .filter(t => t.level === 1)
+      .reduce((sum, t) => sum + (Number(t.man_hours) || 0), 0);
+    return { totalHours, project: p };
+  }, [tasks, projects, selectedProjectId]);
+
+  const currentProject = projectHeaderStats.project;
 
   const currentUserProfile = useMemo(() => {
     if (!user || !user.email || (users || []).length === 0) return null;
@@ -1567,13 +1579,10 @@ export default function App() {
                  {activeView === 'GANTT_DETAIL' && (
                     selectedProjectId ? (
                       <div className="flex items-center gap-3">
-                        <span>{projects.find(p => p.id === selectedProjectId)?.name}</span>
+                        <span>{currentProject?.name}</span>
                         <div className="flex items-center gap-2 not-italic">
                           {(() => {
-                            const p = projects.find(prj => prj.id === selectedProjectId);
-                            const pTasks = tasks.filter(t => t.project_id === selectedProjectId);
-                            const leafTasks = pTasks.filter(t => !pTasks.some(other => other.parent_id === t.id));
-                            const totalHours = leafTasks.reduce((sum, t) => sum + (Number(t.man_hours) || 0), 0);
+                            const { totalHours, project: p } = projectHeaderStats;
                             return (
                               <>
                                 <div className="bg-slate-800/80 px-2 py-1 rounded-md border border-slate-700 flex items-center gap-1.5 shadow-sm">
@@ -1585,10 +1594,10 @@ export default function App() {
                                 <div className={cn(
                                   "px-2 py-1 rounded-md border text-[10px] font-black tracking-widest uppercase",
                                   p?.status === ProjectStatus.DONE ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" :
-                                  p?.status === ProjectStatus.ACTIVE ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
+                                  p?.status === ProjectStatus.ACTIVE || p?.status === ProjectStatus.FSD_PROGRESS ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
                                   "bg-slate-800/50 border-slate-700 text-slate-500"
                                 )}>
-                                  {p?.status === ProjectStatus.ACTIVE ? 'FSD ON PROGRESS' : p?.status || 'UNKNOWN'}
+                                  {p?.status === ProjectStatus.ACTIVE || p?.status === ProjectStatus.FSD_PROGRESS ? 'FSD ON PROGRESS' : p?.status || 'UNKNOWN'}
                                 </div>
                               </>
                             );
@@ -2858,10 +2867,12 @@ function DashboardStats({ tasks, projects }: { tasks: Task[], projects: Project[
     const safeProjects = projects || [];
     const safeTasks = tasks || [];
     const totalProjects = safeProjects.length;
-    const totalLevel1 = safeTasks.filter(t => !t.parent_id);
-    const totalTasks = totalLevel1.length;
-    const totalChildTasks = safeTasks.filter(t => !!t.parent_id).length;
+    
+    // Strict Level 1 (Phases) Aggregation
+    const totalTasks = safeTasks.filter(t => t.level === 1).length;
+    const totalChildTasks = safeTasks.filter(t => t.level === 2).length;
     const totalManHours = safeTasks
+      .filter(t => t.level === 1)
       .reduce((sum, t) => sum + (Number(t.man_hours) || 0), 0);
     
     return { totalProjects, totalTasks, totalChildTasks, totalManHours };
@@ -3060,6 +3071,15 @@ function PortfolioDashboard({ user, projects, tasks, loading, onOpenProject, onD
                   <div className="flex items-center gap-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
                     <UserIcon className="w-3 h-3 text-indigo-500" />
                     <span>PIC: <span className="text-slate-300">{p.pic_name || p.leader_email || 'Unassigned'}</span></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                    <Clock className="w-3 h-3 text-indigo-500" />
+                    <span>MAN HOURS: <span className="text-slate-300">
+                      {tasks
+                        .filter(t => t.project_id === p.id && t.level === 1)
+                        .reduce((sum, t) => sum + (Number(t.man_hours) || 0), 0)
+                        .toFixed(1)}
+                    </span></span>
                   </div>
                   <div className="flex items-center gap-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
                     <Clock className="w-3 h-3 text-slate-600" />
@@ -6426,7 +6446,7 @@ function GanttBar({ user, task, tasks, projects, setTasks, scale, gridStart, gri
   const timeProgress = Math.min(100, Math.max(0, ((new Date().getTime() - fromMs) / (toMs - fromMs)) * 100));
 
   return (
-    <div key={`${task.id}-${index}-${Math.random()}`} className={cn("relative flex items-center w-full", isProjectBar ? "h-16" : (isLevel1 ? "h-14" : "h-10"))}>
+    <div key={`${task.id}-${index}`} className={cn("relative flex items-center w-full", isProjectBar ? "h-16" : (isLevel1 ? "h-14" : "h-10"))}>
       <motion.div
         initial={false}
         animate={{ 
