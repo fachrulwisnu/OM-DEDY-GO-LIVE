@@ -35,6 +35,7 @@ import {
   Save,
   UserPlus,
   X,
+  Menu,
   ArrowRight,
   User as UserIcon,
   Clock,
@@ -72,6 +73,7 @@ import {
   eachWeekOfInterval,
   isWithinInterval,
   addMonths,
+  subMonths,
   subDays,
   isToday,
   isWeekend
@@ -233,6 +235,8 @@ const StatusBadge = ({ status, type = 'task' }: { status: string, type?: 'projec
     // Task Status
     'On Hold': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
     'On Progress': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+    'Review': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    'Revision': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
     'Done': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
     // Project Status
     'FSD on Progress': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
@@ -253,7 +257,7 @@ const StatusBadge = ({ status, type = 'task' }: { status: string, type?: 'projec
 };
 
 const TaskStatusSelector = ({ status, onUpdate, disabled }: { status: any, onUpdate: (s: any) => void, disabled?: boolean }) => {
-  const options = [TaskStatus.ON_HOLD, TaskStatus.ON_PROGRESS, TaskStatus.DONE];
+  const options = [TaskStatus.ON_HOLD, TaskStatus.ON_PROGRESS, TaskStatus.REVIEW, TaskStatus.REVISION, TaskStatus.DONE];
   if (disabled) return <StatusBadge status={status} />;
   return (
     <select 
@@ -855,6 +859,19 @@ export default function App() {
   
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (!mobile) setIsMobileMenuOpen(false);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   const [scale, setScale] = useState<ViewScale>('DAY');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -1443,107 +1460,211 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 flex overflow-hidden">
-      {/* Sidebar */}
-      <aside className={cn(
-        "bg-slate-900 border-r border-slate-800 transition-all duration-300 flex flex-col z-40",
-        isSidebarOpen ? "w-72" : "w-16"
-      )}>
-        <div className="h-20 flex items-center px-4 border-b border-slate-800 shrink-0">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/20 group cursor-pointer hover:scale-105 transition-transform">
-            <span className="text-lg font-black text-white">OD</span>
-          </div>
-          {isSidebarOpen && (
-            <div className="ml-3 overflow-hidden">
-              <h1 className="font-black text-white uppercase italic tracking-tighter text-xl leading-none">OM <span className="text-indigo-500">DEDY</span></h1>
-              <p className="text-[7px] text-slate-500 font-black tracking-[0.05em] uppercase leading-tight mt-1">Operational Monitoring Dashboard<br/>for Efficient Delivery</p>
+    <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col lg:flex-row overflow-hidden">
+      {/* Mobile Top Header */}
+      {isMobile && (
+        <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 shrink-0 z-50">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <span className="text-sm font-black text-white">OD</span>
             </div>
-          )}
-        </div>
+            <h1 className="font-black text-white uppercase italic tracking-tighter text-lg leading-none">OM <span className="text-indigo-500">DEDY</span></h1>
+          </div>
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-2 text-slate-400 hover:text-white transition-colors"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        </header>
+      )}
 
-        <nav className="flex-1 py-6 space-y-1">
-            {menuItems.map((item, i) => (
-              <React.Fragment key={getSafeKey({id: item.id}, i, 'nav-item')}>
-                <button
-                onClick={() => { setActiveView(item.id as AppView); setSelectedProjectId(null); }}
-                className={cn(
-                  "w-full flex items-center py-3 px-4 transition-all relative group",
-                  (activeView === item.id && !selectedProjectId)
-                    ? "text-white bg-gradient-to-r from-indigo-600/20 to-transparent" 
-                    : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-                )}
-              >
-                <item.icon className={cn("w-5 h-5 shrink-0 transition-colors", (activeView === item.id && !selectedProjectId) ? "text-indigo-400" : "text-slate-500")} />
-                {isSidebarOpen && <span className="ml-4 font-bold text-xs uppercase tracking-widest">{item.label}</span>}
-                {item.id === 'RESCHEDULE' && pendingRescheduleCount > 0 && (
-                  <span className={cn(
-                    "ml-auto bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center animate-bounce shadow-lg ring-2 ring-slate-900 transition-all",
-                    isSidebarOpen ? "w-5 h-5" : "w-4 h-4 absolute top-1 right-1"
-                  )}>
-                    {pendingRescheduleCount}
-                  </span>
-                )}
-                {!isSidebarOpen && (
-                  <div className="absolute left-full ml-2 px-3 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap shadow-xl pointer-events-none z-50">
-                    {item.label}
-                  </div>
-                )}
-                {((activeView === item.id && !selectedProjectId)) && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500" />}
-              </button>
-
-              {/* Dynamic Sub-menu for Project Detail */}
-              {item.id === 'PROJECTS' && selectedProjectId && (
-                <div className={cn("mt-1 mb-2", isSidebarOpen ? "pl-8" : "pl-4")}>
-                  <div className="flex items-center gap-2 py-2 text-[10px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/5 border-l-2 border-emerald-500 pl-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    {isSidebarOpen ? 'Om Dedy - Detail Timeline' : ''}
-                  </div>
+      {/* Mobile Drawer */}
+      <AnimatePresence>
+        {isMobile && isMobileMenuOpen && (
+          <motion.div
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed inset-0 bg-slate-900 z-[100] flex flex-col"
+          >
+            <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                  <span className="text-sm font-black text-white">OD</span>
                 </div>
+                <h1 className="font-black text-white uppercase italic tracking-tighter text-lg">OM <span className="text-indigo-500">DEDY</span></h1>
+              </div>
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2 text-slate-400 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto py-6">
+              {menuItems.map((item, i) => (
+                <button
+                  key={getSafeKey({id: item.id}, i, 'mobile-nav-item')}
+                  onClick={() => { 
+                    setActiveView(item.id as AppView); 
+                    setSelectedProjectId(null); 
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center py-4 px-6 transition-all",
+                    (activeView === item.id && !selectedProjectId)
+                      ? "text-white bg-indigo-600/10 border-r-4 border-indigo-500" 
+                      : "text-slate-400 hover:bg-white/5"
+                  )}
+                >
+                  <item.icon className={cn("w-6 h-6 shrink-0", (activeView === item.id && !selectedProjectId) ? "text-indigo-400" : "text-slate-500")} />
+                  <span className="ml-4 font-bold text-sm uppercase tracking-widest">{item.label}</span>
+                  {item.id === 'RESCHEDULE' && pendingRescheduleCount > 0 && (
+                    <span className="ml-auto bg-rose-500 text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
+                      {pendingRescheduleCount}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+
+            <div className="p-6 border-t border-slate-800">
+              {user ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
+                    <div className="w-10 h-10 rounded-full bg-slate-800 border border-indigo-500/30 flex items-center justify-center">
+                      <span className="text-sm font-black text-indigo-400 uppercase">{user.email?.charAt(0) || '?'}</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white">{user.email}</p>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">{user.access_level || 'PIC'}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => { signOut(); setIsMobileMenuOpen(false); }}
+                    className="w-full py-4 bg-slate-800 text-rose-400 font-bold uppercase text-xs tracking-widest rounded-xl"
+                  >
+                    Log Out
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => { navigate('/login'); setIsMobileMenuOpen(false); }}
+                  className="w-full py-4 bg-indigo-600 text-white font-bold uppercase text-xs tracking-widest rounded-xl shadow-lg shadow-indigo-600/20"
+                >
+                  Personnel Login
+                </button>
               )}
-            </React.Fragment>
-          ))}
-        </nav>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        <div className="p-4 border-t border-slate-800 space-y-4">
-           {isSidebarOpen && user && (
-             <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">
-               <div className="flex items-center gap-3 mb-3">
-                 <div className="w-8 h-8 rounded-full bg-slate-800 border border-indigo-500/30 flex items-center justify-center overflow-hidden">
-                   <span className="text-[10px] font-black text-indigo-400 capitalize">{user.email?.charAt(0) || '?'}</span>
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <aside className={cn(
+          "bg-slate-900 border-r border-slate-800 transition-all duration-300 flex flex-col z-40 shrink-0",
+          isSidebarOpen ? "w-72" : "w-16"
+        )}>
+          <div className="h-20 flex items-center px-4 border-b border-slate-800 shrink-0">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/20 group cursor-pointer hover:scale-105 transition-transform">
+              <span className="text-lg font-black text-white">OD</span>
+            </div>
+            {isSidebarOpen && (
+              <div className="ml-3 overflow-hidden">
+                <h1 className="font-black text-white uppercase italic tracking-tighter text-xl leading-none">OM <span className="text-indigo-500">DEDY</span></h1>
+                <p className="text-[7px] text-slate-500 font-black tracking-[0.05em] uppercase leading-tight mt-1">Operational Monitoring Dashboard<br/>for Efficient Delivery</p>
+              </div>
+            )}
+          </div>
+
+          <nav className="flex-1 py-6 space-y-1">
+              {menuItems.map((item, i) => (
+                <React.Fragment key={getSafeKey({id: item.id}, i, 'nav-item')}>
+                  <button
+                  onClick={() => { setActiveView(item.id as AppView); setSelectedProjectId(null); }}
+                  className={cn(
+                    "w-full flex items-center py-3 px-4 transition-all relative group",
+                    (activeView === item.id && !selectedProjectId)
+                      ? "text-white bg-gradient-to-r from-indigo-600/20 to-transparent" 
+                      : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                  )}
+                >
+                  <item.icon className={cn("w-5 h-5 shrink-0 transition-colors", (activeView === item.id && !selectedProjectId) ? "text-indigo-400" : "text-slate-500")} />
+                  {isSidebarOpen && <span className="ml-4 font-bold text-xs uppercase tracking-widest">{item.label}</span>}
+                  {item.id === 'RESCHEDULE' && pendingRescheduleCount > 0 && (
+                    <span className={cn(
+                      "ml-auto bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center animate-bounce shadow-lg ring-2 ring-slate-900 transition-all",
+                      isSidebarOpen ? "w-5 h-5" : "w-4 h-4 absolute top-1 right-1"
+                    )}>
+                      {pendingRescheduleCount}
+                    </span>
+                  )}
+                  {!isSidebarOpen && (
+                    <div className="absolute left-full ml-2 px-3 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap shadow-xl pointer-events-none z-50">
+                      {item.label}
+                    </div>
+                  )}
+                  {((activeView === item.id && !selectedProjectId)) && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500" />}
+                </button>
+
+                {/* Dynamic Sub-menu for Project Detail */}
+                {item.id === 'PROJECTS' && selectedProjectId && (
+                  <div className={cn("mt-1 mb-2", isSidebarOpen ? "pl-8" : "pl-4")}>
+                    <div className="flex items-center gap-2 py-2 text-[10px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/5 border-l-2 border-emerald-500 pl-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      {isSidebarOpen ? 'Om Dedy - Detail Timeline' : ''}
+                    </div>
+                  </div>
+                )}
+              </React.Fragment>
+            ))}
+          </nav>
+
+          <div className="p-4 border-t border-slate-800 space-y-4">
+             {isSidebarOpen && user && (
+               <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                 <div className="flex items-center gap-3 mb-3">
+                   <div className="w-8 h-8 rounded-full bg-slate-800 border border-indigo-500/30 flex items-center justify-center overflow-hidden">
+                     <span className="text-[10px] font-black text-indigo-400 capitalize">{user.email?.charAt(0) || '?'}</span>
+                   </div>
+                   <div className="flex-1 min-w-0">
+                     <p className="text-[10px] font-bold text-slate-200 truncate">{user?.email}</p>
+                     <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">{user?.access_level || 'Authenticated PIC'}</p>
+                   </div>
                  </div>
-                 <div className="flex-1 min-w-0">
-                   <p className="text-[10px] font-bold text-slate-200 truncate">{user?.email}</p>
-                   <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">{user?.access_level || 'Authenticated PIC'}</p>
-                 </div>
+                 <button 
+                   onClick={() => signOut()}
+                   className="w-full flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-rose-500/10 hover:text-rose-400 rounded-lg text-[10px] font-bold uppercase transition-all"
+                 >
+                   <LogOut className="w-3.5 h-3.5" /> Log Out
+                 </button>
                </div>
-               <button 
-                 onClick={() => signOut()}
-                 className="w-full flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-rose-500/10 hover:text-rose-400 rounded-lg text-[10px] font-bold uppercase transition-all"
-               >
-                 <LogOut className="w-3.5 h-3.5" /> Log Out
-               </button>
-             </div>
-           )}
+             )}
 
-           {isSidebarOpen && !user && (
-             <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">
-               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest text-center mb-3">Viewing as External</p>
-               <button 
-                 onClick={() => navigate('/login')}
-                 className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 transition-all"
-               >
-                 <UserIcon className="w-3.5 h-3.5" /> Personnel Login
-               </button>
-             </div>
-           )}
-           <button 
-             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-             className="w-full py-2 flex items-center justify-center rounded-lg hover:bg-slate-800 transition-colors"
-           >
-             {isSidebarOpen ? <ChevronLeft className="w-5 h-5 text-slate-600" /> : <ChevronRight className="w-5 h-5 text-slate-600" />}
-           </button>
-        </div>
-      </aside>
+             {isSidebarOpen && !user && (
+               <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                 <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest text-center mb-3">Viewing as External</p>
+                 <button 
+                   onClick={() => navigate('/login')}
+                   className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 transition-all"
+                 >
+                   <UserIcon className="w-3.5 h-3.5" /> Personnel Login
+                 </button>
+               </div>
+             )}
+             <button 
+               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+               className="w-full py-2 flex items-center justify-center rounded-lg hover:bg-slate-800 transition-colors"
+             >
+               {isSidebarOpen ? <ChevronLeft className="w-5 h-5 text-slate-600" /> : <ChevronRight className="w-5 h-5 text-slate-600" />}
+             </button>
+          </div>
+        </aside>
+      )}
 
       {/* Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
@@ -1558,8 +1679,16 @@ export default function App() {
             </div>
           </div>
         )}
-        <header className="h-20 border-b border-slate-800/60 flex items-center justify-between px-8 bg-slate-950/50 backdrop-blur-md z-30 shrink-0">
+        <header className={cn("h-20 border-b border-slate-800/60 flex items-center justify-between bg-slate-950/50 backdrop-blur-md z-30 shrink-0", isMobile ? "px-4" : "px-8")}>
           <div className="flex items-center gap-4">
+             {isMobile && (
+               <button 
+                 onClick={() => setIsMobileMenuOpen(true)}
+                 className="p-2 -ml-2 text-slate-400 hover:text-white"
+               >
+                 <Menu className="w-6 h-6" />
+               </button>
+             )}
              {activeView === 'GANTT_DETAIL' && selectedProjectId && (
                <button 
                  onClick={() => { setActiveView('PROJECTS'); setSelectedProjectId(null); }}
@@ -1613,19 +1742,28 @@ export default function App() {
 
              <div className="flex items-center gap-4">
               {activeView === 'GANTT_DETAIL' && (
-                <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
-                  {(['MONTH', 'WEEK', 'DAY', 'HOUR'] as ViewScale[]).map((s, si) => (
+                <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 scale-90 sm:scale-100 origin-right">
+                  {isMobile ? (
                     <button
-                      key={`header-scale-${s}-${si}`}
-                      onClick={() => setScale(s)}
-                      className={cn(
-                        "px-3 py-1 rounded-md text-[10px] font-bold tracking-wider transition-all",
-                        scale === s ? "bg-slate-800 text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
-                      )}
+                      onClick={() => setScale(scale === 'DAY' ? 'WEEK' : scale === 'WEEK' ? 'MONTH' : 'DAY')}
+                      className="px-4 py-1.5 rounded-md text-[10px] font-black tracking-widest bg-slate-800 text-indigo-400 capitalize"
                     >
-                      {s}
+                      {scale}
                     </button>
-                  ))}
+                  ) : (
+                    (['MONTH', 'WEEK', 'DAY', 'HOUR'] as ViewScale[]).map((s, si) => (
+                      <button
+                        key={`header-scale-${s}-${si}`}
+                        onClick={() => setScale(s)}
+                        className={cn(
+                          "px-3 py-1 rounded-md text-[10px] font-bold tracking-wider transition-all",
+                          scale === s ? "bg-slate-800 text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
+                        )}
+                      >
+                        {s}
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
 
@@ -1665,7 +1803,8 @@ export default function App() {
                onDeleteProject={handleDeleteProject}
                onUpdateProject={handleUpdateProject}
                onCreateRequested={() => setIsCreateProjectModalOpen(true)}
-                onReschedule={(p) => setReschedulingProject(p)}
+               onReschedule={(p) => setReschedulingProject(p)}
+               isMobile={isMobile}
              />
            )}
            {activeView === 'SCHEDULE' && (
@@ -1677,6 +1816,7 @@ export default function App() {
                 isSuperadmin={isSuperadmin}
                 setOwnershipModal={setOwnershipModal}
                 onNotif={setNotif}
+                isMobile={isMobile}
               />
             )}
            {activeView === 'KANBAN' && (
@@ -1685,14 +1825,16 @@ export default function App() {
                tasks={tasks}
                onOpenGantt={(id) => { setSelectedProjectId(id); navigate(`/project/${id}`); }}
                onUpdateProject={handleUpdateProject}
+               isMobile={isMobile}
              />
-           )}
+            )}
            {activeView === 'PERSONEL' && (
              <PersonelManagement isAdmin={isAdmin} 
                users={users} 
                projects={projects}
                currentUser={user}
                onRefresh={() => setRefreshKey(prev => prev + 1)}
+               isMobile={isMobile}
              />
            )}
            {activeView === 'RESCHEDULE' && (
@@ -1704,9 +1846,10 @@ export default function App() {
                  setRefreshKey(prev => prev + 1);
                }}
                user={user}
+               isMobile={isMobile}
              />
            )}
-           {activeView === 'AUDIT' && <AuditLogView logs={allAuditLogs} projects={projects} users={users} />}
+           {activeView === 'AUDIT' && <AuditLogView logs={allAuditLogs} projects={projects} users={users} isMobile={isMobile} />}
            {activeView === 'GANTT_DETAIL' && (
              <GanttDetailView
                user={user}
@@ -1728,6 +1871,7 @@ export default function App() {
                onNotif={setNotif}
                users={users}
                setTasks={setTasks}
+               isMobile={isMobile}
              />
            )}
           </ErrorBoundary>
@@ -1741,6 +1885,7 @@ export default function App() {
               key="create-project-wizard-modal"
               user={user}
               users={users}
+              isMobile={isMobile}
               onClose={() => setIsCreateProjectModalOpen(false)} 
               onSuccess={() => {
                 setRefreshKey(prev => prev + 1);
@@ -2093,7 +2238,7 @@ function ProjectRescheduleModal({ project, user, onClose, onSuccess }: { project
 
 
 
-function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () => void, onSuccess: () => void, user: any, users: AppUser[] }) {
+function CreateProjectModal({ onClose, onSuccess, user, users, isMobile }: { onClose: () => void, onSuccess: () => void, user: any, users: AppUser[], isMobile?: boolean }) {
   const [title, setTitle] = useState('');
   const [pic, setPic] = useState(user?.name || user?.email || '');
   const [startDate, setStartDate] = useState('');
@@ -2322,9 +2467,9 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
           </button>
         </div>
 
-        <div className="p-8 flex-1 overflow-x-auto overflow-y-auto space-y-8 scrollbar-hide">
-          <div className="grid grid-cols-4 gap-8 max-w-6xl mx-auto">
-            <div className="space-y-4">
+        <div className="p-4 sm:p-8 flex-1 overflow-x-auto overflow-y-auto space-y-8 scrollbar-hide">
+          <div className={cn("grid gap-6 sm:gap-8 max-w-6xl mx-auto", isMobile ? "grid-cols-1" : "grid-cols-4")}>
+            <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Project Meta</label>
               <LocalInput 
                 autoFocus
@@ -2334,7 +2479,7 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 outline-none focus:border-indigo-500 transition-colors font-bold"
               />
             </div>
-            <div className="space-y-4">
+            <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Lead PIC</label>
               <LocalInput 
                 value={pic}
@@ -2343,27 +2488,27 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 outline-none focus:border-indigo-500 transition-colors font-bold"
               />
             </div>
-            <div className="space-y-4">
+            <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Start Date</label>
               <input 
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-colors font-bold"
+                className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-4 outline-none focus:border-indigo-500 transition-colors font-bold"
               />
             </div>
-            <div className="space-y-4">
+            <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">End Date</label>
               <input 
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-colors font-bold"
+                className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-4 outline-none focus:border-indigo-500 transition-colors font-bold"
               />
             </div>
           </div>
 
-          <div className="space-y-6 min-w-[1100px]">
+          <div className={cn("space-y-6", !isMobile && "min-w-[1100px]")}>
             <div className="flex justify-between items-center px-1">
               <label className="text-[11px] font-black text-indigo-500 uppercase tracking-widest">Work Breakdown Structure (WBS)</label>
               <button 
@@ -2374,15 +2519,17 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
               </button>
             </div>
 
-            {/* Header Labels */}
-            <div className="grid grid-cols-[1fr_130px_130px_80px_150px_80px] gap-4 px-6 mb-[-16px]">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-2">Phase / Task Name</label>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">From Date</label>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">To Date</label>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Man-Hours</label>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">PIC</label>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Actions</label>
-            </div>
+            {/* Header Labels (Desktop Only) */}
+            {!isMobile && (
+              <div className="grid grid-cols-[1fr_130px_130px_80px_150px_80px] gap-4 px-6 mb-[-16px]">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-2">Phase / Task Name</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">From Date</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">To Date</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Man-Hours</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">PIC</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Actions</label>
+              </div>
+            )}
 
             {phases.map((phase, pIdx) => {
               const stats = allocationStats[pIdx];
@@ -2391,8 +2538,11 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                   <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-600/30 group-hover:bg-indigo-500 transition-colors" />
                   
                   {/* L1 Header & Inputs */}
-                  <div className="grid grid-cols-[1fr_130px_130px_80px_150px_80px] items-center gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-800/50 shadow-sm transition-all hover:bg-slate-900/70">
-                    <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "items-center gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-800/50 shadow-sm transition-all hover:bg-slate-900/70",
+                    isMobile ? "flex flex-col" : "grid grid-cols-[1fr_130px_130px_80px_150px_80px]"
+                  )}>
+                    <div className="flex items-center gap-2 w-full">
                       <span className="shrink-0 px-2 py-0.5 rounded-full bg-slate-800 border border-indigo-500/30 text-[8px] font-black text-indigo-400 font-mono tracking-wider shadow-inner">
                         {phase.custom_id}
                       </span>
@@ -2408,7 +2558,8 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                       />
                     </div>
 
-                    <div className="flex flex-col gap-1">
+                    <div className={cn("flex flex-col gap-1", isMobile && "w-full")}>
+                      {isMobile && <label className="text-[8px] font-black text-slate-500 uppercase ml-1">From Date</label>}
                       <input 
                         type="date"
                         value={phase.start_date}
@@ -2419,11 +2570,12 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                           newPhases[pIdx].start_date = e.target.value;
                           setPhases(newPhases);
                         }}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-white focus:border-indigo-500 outline-none transition-all"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2.5 text-[10px] text-white focus:border-indigo-500 outline-none transition-all"
                       />
                     </div>
 
-                    <div className="flex flex-col gap-1">
+                    <div className={cn("flex flex-col gap-1", isMobile && "w-full")}>
+                      {isMobile && <label className="text-[8px] font-black text-slate-500 uppercase ml-1">To Date</label>}
                       <input 
                         type="date"
                         value={phase.end_date}
@@ -2434,11 +2586,12 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                           newPhases[pIdx].end_date = e.target.value;
                           setPhases(newPhases);
                         }}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-white focus:border-indigo-500 outline-none transition-all"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2.5 text-[10px] text-white focus:border-indigo-500 outline-none transition-all"
                       />
                     </div>
 
-                    <div className="flex flex-col items-center gap-1">
+                    <div className={cn("flex flex-col items-center gap-1", isMobile && "w-full")}>
+                      {isMobile && <label className="text-[8px] font-black text-slate-500 uppercase ml-1 w-full text-left">Man-Hours</label>}
                       <input 
                         type="number" min="0" step="0.5"
                         value={phase.man_hours}
@@ -2447,14 +2600,15 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                           newPhases[pIdx].man_hours = Math.max(0, parseFloat(e.target.value) || 0);
                           setPhases(newPhases);
                         }}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-xs text-indigo-400 text-center font-black outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2.5 text-xs text-indigo-400 text-center font-black outline-none focus:border-indigo-500"
                       />
                       <span className="text-[8px] font-black text-slate-600 uppercase tracking-tight h-3">
                          {phase.man_hours > 0 ? `≈ ${formatWorkday(phase.man_hours)}` : ''}
                       </span>
                     </div>
 
-                    <div className="flex flex-col">
+                    <div className={cn("flex flex-col", isMobile && "w-full")}>
+                      {isMobile && <label className="text-[8px] font-black text-slate-500 uppercase ml-1 block mb-1">PIC Name</label>}
                       <LocalInput 
                         value={(phase as any).assignee}
                         onChange={(v) => {
@@ -2462,18 +2616,18 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                           (newPhases[pIdx] as any).assignee = v;
                           setPhases(newPhases);
                         }}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[10px] text-slate-300 text-center outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-[10px] text-slate-300 text-center outline-none focus:border-indigo-500"
                         placeholder="PIC Name"
                       />
                     </div>
 
-                    <div className="flex justify-center gap-3">
+                    <div className={cn("flex justify-center gap-4", isMobile && "w-full pt-4 border-t border-slate-800/50")}>
                       <button 
                         onClick={() => addSubtask(pIdx)}
-                        className="p-2 hover:bg-indigo-500/10 text-indigo-500/40 hover:text-indigo-400 rounded-lg transition-all"
+                        className={cn("p-2.5 hover:bg-indigo-500/10 text-indigo-500/40 hover:text-indigo-400 rounded-xl transition-all", isMobile && "flex-1 border border-indigo-500/20 bg-indigo-500/5")}
                         title="Add Breakdown"
                       >
-                        <Plus className="w-5 h-5" />
+                        {isMobile ? <span className="flex items-center justify-center gap-2 text-[10px] font-black uppercase"><Plus className="w-4 h-4" /> Add Sub-task</span> : <Plus className="w-5 h-5" />}
                       </button>
                       <button 
                         onClick={() => {
@@ -2481,10 +2635,10 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                           newPhases.splice(pIdx, 1);
                           setPhases(newPhases);
                         }}
-                        className="p-2 hover:bg-rose-500/10 text-slate-700 hover:text-rose-500 rounded-lg transition-all"
+                        className={cn("p-2.5 hover:bg-rose-500/10 text-slate-700 hover:text-rose-500 rounded-xl transition-all", isMobile && "flex-1 border border-rose-500/20 bg-rose-500/5")}
                         title="Delete Phase"
                       >
-                        <Trash2 className="w-5 h-5" />
+                        {isMobile ? <span className="flex items-center justify-center gap-2 text-[10px] font-black uppercase"><Trash2 className="w-4 h-4" /> Delete</span> : <Trash2 className="w-5 h-5" />}
                       </button>
                     </div>
                   </div>
@@ -2525,10 +2679,13 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                     <div className="space-y-1.5">
                       {phase.subtasks.map((sub, sIdx) => {
                         return (
-                          <div key={getSafeKey(sub, sIdx, 'wizard-subtask')} className="grid grid-cols-[1fr_130px_130px_80px_150px_80px] items-center gap-4 group/sub hover:bg-slate-900/30 p-2 rounded-lg transition-colors mx-2">
+                          <div key={getSafeKey(sub, sIdx, 'wizard-subtask')} className={cn(
+                            "items-center gap-4 group/sub hover:bg-slate-900/30 p-2 rounded-lg transition-colors mx-2",
+                            isMobile ? "flex flex-col border border-slate-800/40 bg-slate-900/40 p-4 mb-4" : "grid grid-cols-[1fr_130px_130px_80px_150px_80px]"
+                          )}>
                           {/* Col 1 with Indentation Built-in */}
-                          <div className="flex items-center gap-3 pl-8">
-                            <span className="text-indigo-500/20 font-black text-xl select-none group-hover/sub:text-indigo-500/40">↳</span>
+                          <div className={cn("flex items-center gap-3", !isMobile && "pl-8", isMobile && "w-full")}>
+                            {!isMobile && <span className="text-indigo-500/20 font-black text-xl select-none group-hover/sub:text-indigo-500/40">↳</span>}
                             <span className="shrink-0 px-2 py-0.5 rounded-full bg-slate-950 border border-indigo-500/20 text-[8px] font-bold text-indigo-500/60 font-mono tracking-wider">
                               {(sub as any).custom_id}
                             </span>
@@ -2544,7 +2701,8 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                             />
                           </div>
 
-                          <div className="flex justify-center">
+                          <div className={cn("flex justify-center", isMobile && "w-full flex-col gap-1")}>
+                            {isMobile && <label className="text-[8px] font-black text-slate-500 uppercase ml-1">From Date</label>}
                             <input 
                               type="date"
                               value={sub.start_date}
@@ -2560,11 +2718,12 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                                 newPhases[pIdx].subtasks[sIdx].start_date = val;
                                 setPhases(newPhases);
                               }}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-1 py-1.5 text-[9px] text-white focus:border-indigo-500/50 outline-none transition-all"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-white focus:border-indigo-500/50 outline-none transition-all"
                             />
                           </div>
 
-                          <div className="flex justify-center">
+                          <div className={cn("flex justify-center", isMobile && "w-full flex-col gap-1")}>
+                            {isMobile && <label className="text-[8px] font-black text-slate-500 uppercase ml-1">To Date</label>}
                             <input 
                               type="date"
                               value={sub.end_date}
@@ -2580,11 +2739,12 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                                 newPhases[pIdx].subtasks[sIdx].end_date = val;
                                 setPhases(newPhases);
                               }}
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-1 py-1.5 text-[9px] text-white focus:border-indigo-500/50 outline-none transition-all"
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-white focus:border-indigo-500/50 outline-none transition-all"
                             />
                           </div>
 
-                          <div className="flex justify-center">
+                          <div className={cn("flex justify-center", isMobile && "w-full flex-col gap-1")}>
+                            {isMobile && <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Man-Hours</label>}
                             <input 
                               type="number" min="0" step="0.5"
                               value={sub.man_hours}
@@ -2593,11 +2753,12 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                                 newPhases[pIdx].subtasks[sIdx].man_hours = Math.max(0, parseFloat(e.target.value) || 0);
                                 setPhases(newPhases);
                               }}
-                              className="w-16 bg-slate-900 border border-slate-700 rounded-md px-1 py-1 text-[10px] text-indigo-400/80 text-center outline-none focus:border-indigo-500/50 font-black"
+                              className={cn("bg-slate-900 border border-slate-700 rounded-md px-2 py-1.5 text-[10px] text-indigo-400/80 text-center outline-none focus:border-indigo-500/50 font-black", isMobile ? "w-full" : "w-16")}
                             />
                           </div>
 
-                          <div className="flex justify-center">
+                          <div className={cn("flex justify-center", isMobile && "w-full flex-col gap-1")}>
+                            {isMobile && <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Assignee</label>}
                             <LocalInput 
                               value={(sub as any).assignee}
                               onChange={(v) => {
@@ -2606,20 +2767,20 @@ function CreateProjectModal({ onClose, onSuccess, user, users }: { onClose: () =
                                 setPhases(newPhases);
                               }}
                               placeholder="Assignee"
-                              className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[9px] text-slate-500 text-center outline-none focus:border-indigo-500/50"
+                              className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-2 text-[10px] text-slate-500 text-center outline-none focus:border-indigo-500/50"
                             />
                           </div>
 
-                          <div className="flex justify-center">
+                          <div className={cn("flex justify-center", isMobile && "w-full")}>
                             <button 
                               onClick={() => {
                                 const newPhases = [...phases];
                                 newPhases[pIdx].subtasks.splice(sIdx, 1);
                                 setPhases(newPhases);
                               }}
-                              className="p-1.5 opacity-0 group-hover/sub:opacity-100 hover:bg-rose-500/10 text-slate-700 hover:text-rose-500 rounded transition-all"
+                              className={cn("p-1.5 transition-all", isMobile ? "w-full border border-rose-500/10 bg-rose-500/10 text-rose-500 py-3 mt-2 flex items-center justify-center gap-2 rounded-xl" : "opacity-0 group-hover/sub:opacity-100 hover:bg-rose-500/10 text-slate-700 hover:text-rose-500 rounded")}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {isMobile ? <><Trash2 className="w-4 h-4" /><span className="text-[10px] font-black uppercase">Remove Activity</span></> : <Trash2 className="w-4 h-4" />}
                             </button>
                           </div>
                         </div>
@@ -2915,7 +3076,7 @@ function DashboardStats({ tasks, projects }: { tasks: Task[], projects: Project[
   );
 }
 
-function PortfolioDashboard({ user, projects, tasks, loading, onOpenProject, onDeleteProject, onUpdateProject, onCreateRequested, onReschedule }: { 
+function PortfolioDashboard({ user, projects, tasks, loading, onOpenProject, onDeleteProject, onUpdateProject, onCreateRequested, onReschedule, isMobile }: { 
   user: any,
   projects: Project[], 
   tasks: Task[],
@@ -2924,7 +3085,8 @@ function PortfolioDashboard({ user, projects, tasks, loading, onOpenProject, onD
   onDeleteProject: (id: string) => void,
   onUpdateProject: (id: string, updates: Partial<Project>) => void,
   onCreateRequested: () => void,
-  onReschedule: (p: Project) => void
+  onReschedule: (p: Project) => void,
+  isMobile?: boolean
 }) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [notif, setNotif] = useState<string | null>(null);
@@ -3126,14 +3288,15 @@ const SCHEDULE_STATUS_COLORS: Record<string, string> = {
   'LATE': 'text-rose-400 bg-rose-500/10 border-rose-500/20 shadow-[0_0_8px_rgba(244,63,94,0.1)]',
 };
 
-function OmDedySchedule({ user, users, setActiveView, isAdmin, isSuperadmin, setOwnershipModal, onNotif }: { 
+function OmDedySchedule({ user, users, setActiveView, isAdmin, isSuperadmin, setOwnershipModal, onNotif, isMobile }: { 
   user: any, 
   users: AppUser[], 
   setActiveView: (view: AppView) => void,
   isAdmin: boolean,
   isSuperadmin: boolean,
   setOwnershipModal: React.Dispatch<React.SetStateAction<any>>,
-  onNotif?: (msg: string | null) => void
+  onNotif?: (msg: string | null) => void,
+  isMobile?: boolean
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -3153,6 +3316,7 @@ function OmDedySchedule({ user, users, setActiveView, isAdmin, isSuperadmin, set
     swapStatus?: string,
     swapCurrentStatus?: string
   } | null>(null);
+  const [selectedPIC, setSelectedPIC] = useState<string | null>(null);
 
   const currentUserProfile = useMemo(() => {
     return users.find(u => u.email?.toLowerCase() === user?.email?.toLowerCase());
@@ -3172,7 +3336,7 @@ function OmDedySchedule({ user, users, setActiveView, isAdmin, isSuperadmin, set
       const dateKey = s.schedule_date; // already YYYY-MM-DD
       const date = new Date(dateKey);
       if (date >= monthStart && date <= monthEnd) {
-        const st = s.status.toUpperCase();
+        const st = (s.status || '').toUpperCase();
         if (st === 'WFO') counts.WFO++;
         else if (st === 'WFH') counts.WFH++;
         else if (st === 'WFC' || st === 'A2') counts.WFC++;
@@ -3253,6 +3417,135 @@ function OmDedySchedule({ user, users, setActiveView, isAdmin, isSuperadmin, set
     });
     return grid;
   }, [schedules]);
+
+  if (isMobile) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+              className="p-2 border border-slate-800 rounded-lg text-slate-500 hover:text-white"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <h2 className="text-sm font-black text-white uppercase italic tracking-tighter">
+              {format(currentMonth, 'MMMM yyyy')}
+            </h2>
+            <button 
+              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+              className="p-2 border border-slate-800 rounded-lg text-slate-500 hover:text-white"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex bg-slate-900 rounded-lg border border-slate-800 p-1">
+             <div className="px-2 py-1 flex items-center gap-1">
+               <div className="w-2 h-2 rounded-full bg-emerald-500" />
+               <span className="text-[8px] font-black text-slate-400 uppercase">{stats.WFO} WFO</span>
+             </div>
+             <div className="px-2 py-1 flex items-center gap-1 border-l border-slate-800">
+               <div className="w-2 h-2 rounded-full bg-indigo-500" />
+               <span className="text-[8px] font-black text-slate-400 uppercase">{stats.WFH} WFH</span>
+             </div>
+          </div>
+        </div>
+
+        {selectedPIC ? (
+          <div className="space-y-4">
+            <button 
+              onClick={() => setSelectedPIC(null)}
+              className="flex items-center gap-2 text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to Team List
+            </button>
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6">
+               <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 rounded-full bg-slate-800 border border-indigo-500/30 flex items-center justify-center">
+                    <span className="text-xl font-black text-indigo-400 uppercase">{selectedPIC.charAt(0)}</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white tracking-tight">{selectedPIC}</h3>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Team Availability Calendar</p>
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-7 gap-1">
+                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                   <div key={`day-header-${i}`} className="text-[10px] font-black text-slate-600 text-center py-2">{d}</div>
+                 ))}
+                 {days.map((day, i) => {
+                   const dateKey = format(day, 'yyyy-MM-dd');
+                   const st = scheduleGrid[selectedPIC]?.[dateKey] || '';
+                   const isToday = format(new Date(), 'yyyy-MM-dd') === dateKey;
+                   
+                   return (
+                     <div 
+                       key={`calendar-day-${i}`}
+                       className={cn(
+                         "aspect-square rounded-lg flex flex-col items-center justify-center relative transition-all border",
+                         st === 'WFO' ? "bg-emerald-500 text-white border-emerald-400" :
+                         st === 'WFH' ? "bg-indigo-500 text-white border-indigo-400" :
+                         "bg-slate-950/50 border-white/5",
+                         isToday && "ring-2 ring-indigo-500 ring-offset-2 ring-offset-slate-900"
+                       )}
+                     >
+                       <span className={cn(
+                         "text-[10px] font-bold",
+                         (st === 'WFO' || st === 'WFH') ? "text-white" : isToday ? "text-indigo-400" : "text-slate-500"
+                       )}>
+                         {format(day, 'd')}
+                       </span>
+                     </div>
+                   );
+                 })}
+               </div>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            {pics.map((pic, i) => {
+              const picStat = picStats[pic] || { WFO: 0, WFH: 0, TOTAL: 0 };
+              return (
+                <motion.div
+                  key={`mobile-pic-${i}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-slate-800 border border-indigo-500/30 flex items-center justify-center">
+                      <span className="text-xl font-black text-indigo-400 uppercase">{pic.charAt(0)}</span>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-white px-0 m-0">{pic}</h3>
+                      <div className="flex items-center gap-3 mt-1">
+                         <div className="flex items-center gap-1">
+                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                           <span className="text-[9px] font-black text-slate-500 uppercase">{picStat.WFO} WFO</span>
+                         </div>
+                         <div className="flex items-center gap-1">
+                           <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                           <span className="text-[9px] font-black text-slate-500 uppercase">{picStat.WFH} WFH</span>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedPIC(pic)}
+                    className="h-10 w-10 flex items-center justify-center bg-slate-800 rounded-xl text-slate-400 hover:text-white"
+                  >
+                    <Calendar className="w-5 h-5" />
+                  </button>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -4067,7 +4360,7 @@ function OmDedySchedule({ user, users, setActiveView, isAdmin, isSuperadmin, set
   );
 }
 
-function PersonelManagement({ users, projects, currentUser, onRefresh, isAdmin }: { users: AppUser[], projects: Project[], currentUser: any, onRefresh: () => void, isAdmin: boolean }) {
+function PersonelManagement({ users, projects, currentUser, onRefresh, isAdmin, isMobile }: { users: AppUser[], projects: Project[], currentUser: any, onRefresh: () => void, isAdmin: boolean, isMobile?: boolean }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [accessFilter, setAccessFilter] = useState('all');
   const [selectedPIC, setSelectedPIC] = useState<AppUser | null>(null);
@@ -4195,85 +4488,135 @@ function PersonelManagement({ users, projects, currentUser, onRefresh, isAdmin }
         )}
       </div>
 
-      <div className="bg-slate-900/50 border border-slate-800/60 rounded-2xl overflow-hidden shadow-2xl">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-slate-800 bg-slate-900/50">
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Nama PIC</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Email PIC</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Password</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Access Level</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Role</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/50">
+      <div className={cn("bg-slate-900/50 border border-slate-800/60 rounded-2xl overflow-hidden shadow-2xl", isMobile && "bg-transparent border-none shadow-none")}>
+        {isMobile ? (
+          <div className="space-y-4">
             {filteredUsers.map((u, i) => {
               const canEdit = isAdmin || u.email === currentUser?.email;
-              const personnelKey = getSafeKey(u, i, 'user');
-
               return (
-                <tr 
-                  key={personnelKey} 
-                  className="hover:bg-indigo-500/5 transition-all group cursor-pointer border-b border-slate-800/30"
+                <div 
+                  key={getSafeKey(u, i, 'user-mobile')}
+                  className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-4"
                   onClick={() => setSelectedPIC(u)}
                 >
-                  <td className="px-6 py-4">
+                  <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-[10px] text-indigo-400 uppercase">
+                      <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-indigo-400 uppercase">
                         {u.name?.charAt(0)}
                       </div>
-                      <span className="font-bold text-slate-200">{u.name}</span>
+                      <div>
+                        <p className="text-sm font-bold text-slate-200">{u.name}</p>
+                        <p className="text-[10px] text-slate-500 font-mono">{u.email}</p>
+                      </div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4">
-                     <span className="text-[11px] text-slate-400 font-mono">{u.email}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                     <span className="text-[11px] text-slate-500 font-mono">••••••••</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2 py-1 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-wider">
+                    <span className="px-2 py-1 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[8px] font-black uppercase tracking-wider">
                       {u.access_level}
                     </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="font-black text-slate-600 text-[10px] uppercase tracking-[0.15em]">{u.role}</span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-800/50">
+                    <span className="font-black text-slate-600 text-[8px] uppercase tracking-widest">{u.role}</span>
+                    <div className="flex items-center gap-2">
                       {canEdit && (
                         <button 
                           onClick={e => { e.stopPropagation(); startEditing(u); }}
-                          className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-indigo-400"
-                          title="Edit Personnel"
+                          className="p-2 bg-slate-800 rounded-lg text-slate-400"
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
                       )}
                       <button 
                         onClick={e => { e.stopPropagation(); setSelectedPIC(u); }}
-                        className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-indigo-400"
-                        title="View Info"
+                        className="p-2 bg-slate-800 rounded-lg text-slate-400"
                       >
                         <ExternalLink className="w-4 h-4" />
                       </button>
-                      {isAdmin && (
-                        <button 
-                          onClick={e => { e.stopPropagation(); handleDelete(u); }}
-                          className="p-2 hover:bg-rose-500/10 rounded-lg text-slate-500 hover:text-rose-500"
-                          title="Hapus Personel"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
                     </div>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               );
             })}
-          </tbody>
-        </table>
+          </div>
+        ) : (
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-slate-800 bg-slate-900/50">
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Nama PIC</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Email PIC</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Password</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Access Level</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Role</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50">
+              {filteredUsers.map((u, i) => {
+                const canEdit = isAdmin || u.email === currentUser?.email;
+                const personnelKey = getSafeKey(u, i, 'user');
+
+                return (
+                  <tr 
+                    key={personnelKey} 
+                    className="hover:bg-indigo-500/5 transition-all group cursor-pointer border-b border-slate-800/30"
+                    onClick={() => setSelectedPIC(u)}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-[10px] text-indigo-400 uppercase">
+                          {u.name?.charAt(0)}
+                        </div>
+                        <span className="font-bold text-slate-200">{u.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                       <span className="text-[11px] text-slate-400 font-mono">{u.email}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                       <span className="text-[11px] text-slate-500 font-mono">••••••••</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-wider">
+                        {u.access_level}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="font-black text-slate-600 text-[10px] uppercase tracking-[0.15em]">{u.role}</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {canEdit && (
+                          <button 
+                            onClick={e => { e.stopPropagation(); startEditing(u); }}
+                            className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-indigo-400"
+                            title="Edit Personnel"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button 
+                          onClick={e => { e.stopPropagation(); setSelectedPIC(u); }}
+                          className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-indigo-400"
+                          title="View Info"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                        {isAdmin && (
+                          <button 
+                            onClick={e => { e.stopPropagation(); handleDelete(u); }}
+                            className="p-2 hover:bg-rose-500/10 rounded-lg text-slate-500 hover:text-rose-500"
+                            title="Hapus Personel"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <AnimatePresence>
@@ -4345,7 +4688,7 @@ function PersonelManagement({ users, projects, currentUser, onRefresh, isAdmin }
   );
 }
 
-function KanbanView({ projects, tasks, onOpenGantt, onUpdateProject }: { projects: Project[], tasks: Task[], onOpenGantt: (id: string) => void, onUpdateProject: (id: string, updates: Partial<Project>) => void }) {
+function KanbanView({ projects, tasks, onOpenGantt, onUpdateProject, isMobile }: { projects: Project[], tasks: Task[], onOpenGantt: (id: string) => void, onUpdateProject: (id: string, updates: Partial<Project>) => void, isMobile?: boolean }) {
   const [picFilter, setPicFilter] = useState('all');
   const [projectSearch, setProjectSearch] = useState('');
 
@@ -4485,7 +4828,7 @@ function KanbanView({ projects, tasks, onOpenGantt, onUpdateProject }: { project
 function GanttDetailView({ 
   user, users, projectId, setFocusedProjectId, projects, setProjects, tasks, hierarchicalTasks, expandedRows, scale, 
   setRefreshKey, handleToggleExpand, handleUpdateTask, handleOpenAudit, handleDeleteTask, 
-  setScale, setTasks, onReschedule, onNotif, isAdmin, isSuperadmin
+  setScale, setTasks, onReschedule, onNotif, isAdmin, isSuperadmin, isMobile
 }: any) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'TASKS' | 'AUDIT'>('TASKS');
@@ -4759,12 +5102,12 @@ function GanttDetailView({
          animate={{ opacity: 1, scale: 1 }}
          exit={{ opacity: 0, scale: 1.02 }}
          transition={{ duration: 0.3 }}
-         className="flex flex-col h-full justify-start gap-4 p-4"
+         className={cn("flex flex-col h-full justify-start gap-4 p-4", isMobile && "p-1 pb-20")}
        >
           {/* TOP: Task Manager (Only in Detail View) */}
           {!isGlobalView && (
             <div className="h-auto max-h-[480px] flex flex-col bg-slate-950/20 border border-slate-800/60 rounded-2xl overflow-y-auto shadow-2xl shrink-0 scrollbar-hide">
-      <div className="p-4 border-b border-slate-800/60 flex flex-wrap items-center justify-between bg-zinc-900/40 gap-4">
+      <div className={cn("p-4 border-b border-slate-800/60 flex flex-wrap items-center justify-between bg-zinc-900/40 gap-4", isMobile && "px-4")}>
                 <div className="flex items-center gap-6">
                   <div className="flex bg-slate-950 p-1 rounded-xl border border-white/5">
                     <button 
@@ -4912,25 +5255,44 @@ function GanttDetailView({
               
               <div className="flex-1 overflow-auto scrollbar-hide bg-slate-950/40 relative">
                 {activeTab === 'TASKS' ? (
-                  <div className="w-full overflow-x-auto scrollbar-hide">
-                    <div className="min-w-[800px]">
-                      <GanttTree 
-                        user={user}
-                        users={users}
-                        roots={projectTree.roots} 
-                        map={projectTree.map} 
-                        tasks={filteredTasks}
-                        projects={projects}
-                        expandedRows={expandedRows}
-                        onToggleExpand={handleToggleExpand}
-                        onUpdateTask={handleUpdateTask}
-                        onOpenAudit={handleOpenAudit}
-                        onDeleteTask={handleDeleteTask}
-                        onAddSubTask={handleAddInlineL2}
-                        disabled={!user}
-                      />
+                  isMobile ? (
+                    <div className="flex-1 overflow-y-auto px-4 py-6">
+                      <div className="space-y-4">
+                        {projectTree.roots.map((root: any) => (
+                          <MobileTaskCard 
+                            key={root.id}
+                            task={root}
+                            onToggleExpand={handleToggleExpand}
+                            isExpanded={expandedRows.has(root.id)}
+                            onUpdateTask={handleUpdateTask}
+                            onDeleteTask={handleDeleteTask}
+                            expandedRows={expandedRows}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="w-full overflow-x-auto scrollbar-hide">
+                      <div className="min-w-[800px]">
+                        <GanttTree 
+                          user={user}
+                          users={users}
+                          roots={projectTree.roots} 
+                          map={projectTree.map} 
+                          tasks={filteredTasks}
+                          projects={projects}
+                          expandedRows={expandedRows}
+                          onToggleExpand={handleToggleExpand}
+                          onUpdateTask={handleUpdateTask}
+                          onOpenAudit={handleOpenAudit}
+                          onDeleteTask={handleDeleteTask}
+                          onAddSubTask={handleAddInlineL2}
+                          disabled={!user}
+                          isMobile={isMobile}
+                        />
+                      </div>
+                    </div>
+                  )
                 ) : (
                   <div className="p-8">
                      <AuditLogTable logs={rescheduleLogs} />
@@ -5000,6 +5362,9 @@ function GanttDetailView({
                   projects={projects}
                   isGlobalView={isGlobalView}
                   onSetFocus={(id: string) => navigate(`/project/${id}`)}
+                  isMobile={isMobile}
+                  onUpdateTask={handleUpdateTask}
+                  onDeleteTask={handleDeleteTask}
                 />
              </div>
            </div>
@@ -5317,7 +5682,7 @@ function EditPersonnelModal({
   );
 }
 
-function RescheduleRequestsView({ requests, onRefresh, user, isLoading }: { requests: any[], onRefresh: () => void, user: any, isLoading?: boolean }) {
+function RescheduleRequestsView({ requests, onRefresh, user, isLoading, isMobile }: { requests: any[], onRefresh: () => void, user: any, isLoading?: boolean, isMobile?: boolean }) {
   const [confirmData, setConfirmData] = useState<{ id: string, status: 'Approved' | 'Rejected' } | null>(null);
   const [activeTab, setActiveTab] = useState<'PENDING' | 'HISTORY'>('PENDING');
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -5373,7 +5738,7 @@ function RescheduleRequestsView({ requests, onRefresh, user, isLoading }: { requ
   const currentRequests = activeTab === 'PENDING' ? pendingRequests : historyRequests;
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 h-full flex flex-col">
+    <div className={cn("space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 h-full flex flex-col", isMobile ? "px-1" : "px-0")}>
       <ConfirmModal 
         isOpen={!!confirmData}
         onClose={() => setConfirmData(null)}
@@ -5396,64 +5761,66 @@ function RescheduleRequestsView({ requests, onRefresh, user, isLoading }: { requ
         confirmText="Hapus Permanen"
       />
 
-      <div className="flex items-center justify-between">
+      <div className={cn("flex flex-wrap items-center justify-between gap-6", isMobile && "flex-col items-start")}>
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20 shadow-lg shadow-amber-500/5">
             <History className="w-7 h-7 text-amber-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-white tracking-tighter italic uppercase">APPROVAL MENU</h2>
+            <h2 className={cn("font-black text-white tracking-tighter italic uppercase", isMobile ? "text-xl" : "text-2xl")}>APPROVAL MENU</h2>
             <p className="text-xs text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Status Change Requests</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className={cn("flex items-center gap-3", isMobile && "w-full overflow-x-auto pb-2 scrollbar-hide")}>
           <button 
             onClick={onRefresh}
             disabled={isLoading}
-            className="p-2.5 bg-slate-900/50 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition-all disabled:opacity-50"
+            className="p-2.5 bg-slate-900/50 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition-all disabled:opacity-50 flex-shrink-0"
             title="Refresh Requests"
           >
             <RefreshCw className={cn("w-5 h-5", isLoading && "animate-spin")} />
           </button>
 
-          <div className="flex bg-slate-900/50 p-1 rounded-xl border border-white/5">
+          <div className="flex bg-slate-900/50 p-1 rounded-xl border border-white/5 flex-shrink-0">
             <button 
               onClick={() => setActiveTab('PENDING')}
               className={cn(
                 "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
-                activeTab === 'PENDING' ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20" : "text-slate-500 hover:text-slate-300"
+                activeTab === 'PENDING' ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20" : "text-slate-500 hover:text-slate-300",
+                isMobile && "px-3"
               )}
             >
-              Pending Requests
+              Pending
               <span className="bg-black/40 px-1.5 py-0.5 rounded-md text-[8px]">{pendingRequests.length}</span>
             </button>
             <button 
               onClick={() => setActiveTab('HISTORY')}
               className={cn(
                 "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
-                activeTab === 'HISTORY' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+                activeTab === 'HISTORY' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300",
+                isMobile && "px-3"
               )}
             >
-              Resolution History
+              History
             </button>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-4 scrollbar-hide">
+      <div className={cn("flex-1 overflow-y-auto pr-2 scrollbar-hide", isMobile ? "px-0" : "pr-4")}>
         {isLoading ? (
-          <div className="h-full bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-20 flex flex-col items-center justify-center gap-4">
+          <div className="h-full bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-10 flex flex-col items-center justify-center gap-4 text-center">
              <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin" />
              <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Fetching requests...</p>
           </div>
         ) : currentRequests.length === 0 ? (
-          <div className="h-full bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-20 flex flex-col items-center justify-center gap-4">
-            <History className="w-16 h-16 text-slate-700" />
+          <div className="h-full bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-10 flex flex-col items-center justify-center gap-4 text-center">
+            <History className="w-16 h-16 text-slate-700 mx-auto" />
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">No {activeTab === 'PENDING' ? 'Pending' : 'Resolved'} Requests</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
+          <div className={cn("grid grid-cols-1 gap-6 pb-20", !isMobile && "md:grid-cols-2 lg:grid-cols-3")}>
             {currentRequests.map((req: any, i: number) => {
               return (
                 <div key={getSafeKey(req, i, 'request')} className="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] space-y-5 hover:border-indigo-500/30 transition-all shadow-xl group relative">
@@ -5474,7 +5841,7 @@ function RescheduleRequestsView({ requests, onRefresh, user, isLoading }: { requ
                     {activeTab === 'HISTORY' && (
                       <button 
                         onClick={() => setDeleteId(req.id)}
-                        className="p-1.5 text-slate-600 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        className={cn("p-1.5 text-slate-600 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all", isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -5499,8 +5866,8 @@ function RescheduleRequestsView({ requests, onRefresh, user, isLoading }: { requ
                     <div className="flex items-center gap-3 p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/10">
                       <Layers className="w-3.5 h-3.5 text-indigo-400" />
                       <div>
-                        <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">Two-Way Swap Detected</p>
-                        <p className="text-[9px] text-slate-400 font-bold">Swap with {req.swap_date} ({req.swap_status})</p>
+                        <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">Two-Way Swap</p>
+                        <p className="text-[9px] text-slate-400 font-bold truncate">Swap with {req.swap_date}</p>
                       </div>
                     </div>
                   )}
@@ -5530,13 +5897,13 @@ function RescheduleRequestsView({ requests, onRefresh, user, isLoading }: { requ
                   <div className="pt-2 flex gap-3 text-xs">
                     <button 
                       onClick={() => setConfirmData({ id: req.id, status: 'Rejected' })}
-                      className="flex-1 py-3 bg-slate-800 hover:bg-rose-500/10 hover:text-rose-400 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                      className="flex-1 py-4 bg-slate-800 hover:bg-rose-500/10 hover:text-rose-400 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
                     >
                       Reject
                     </button>
                     <button 
                       onClick={() => setConfirmData({ id: req.id, status: 'Approved' })}
-                      className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
+                      className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
                     >
                       Approve
                     </button>
@@ -5552,7 +5919,7 @@ function RescheduleRequestsView({ requests, onRefresh, user, isLoading }: { requ
   );
 }
 
-function AuditLogView({ logs, projects, users }: { logs: AuditLog[], projects: Project[], users: AppUser[] }) {
+function AuditLogView({ logs, projects, users, isMobile }: { logs: AuditLog[], projects: Project[], users: AppUser[], isMobile?: boolean }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
@@ -5565,18 +5932,18 @@ function AuditLogView({ logs, projects, users }: { logs: AuditLog[], projects: P
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
-        <div className="flex-1 relative">
+    <div className={cn("space-y-6 h-full flex flex-col", isMobile ? "px-2" : "px-0")}>
+      <div className={cn("flex flex-wrap items-center justify-between gap-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800", isMobile && "flex-col")}>
+        <div className="flex-1 relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by Personnel Name..."
+            placeholder="Search Personnel..."
             className="w-full bg-slate-950/50 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-300 outline-none focus:border-indigo-500 transition-all font-bold"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className={cn("flex items-center gap-3", isMobile && "w-full justify-between")}>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Filter Date</label>
           <input 
             type="date"
@@ -5587,76 +5954,118 @@ function AuditLogView({ logs, projects, users }: { logs: AuditLog[], projects: P
         </div>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[calc(100vh-300px)]">
+      <div className={cn("bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col flex-1", !isMobile && "max-h-[calc(100vh-300px)]")}>
         <div className="flex-1 overflow-y-auto scrollbar-hide">
-          <table className="w-full text-left">
-            <thead className="sticky top-0 z-10 bg-slate-900 shadow-md">
-              <tr className="border-b border-slate-800">
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Timestamp</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Actor (Name)</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Project Mapping</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Operational Action</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] text-right">Insight</th>
-              </tr>
-            </thead>
-        <tbody className="divide-y divide-slate-800/50 text-[12px] text-slate-400">
-          {(() => {
-            const uniqueLogs = Array.from(new Map((filteredLogs || []).filter(l => !!l).map(l => [l.id, l])).values());
-            return uniqueLogs.map((log, i) => {
-              const project = projects.find(p => p.id === log.project_id);
-              const actorUser = users.find(u => u.email === log.actor);
-              const combinedKey = getSafeKey(log, i, 'audit-table');
-              return (
-                <tr key={combinedKey} className="hover:bg-white/[0.01] transition-colors group">
-                    <td className="px-6 py-4 font-mono text-[10px] text-slate-500 whitespace-nowrap italic">
-                      {log.created_at ? format(new Date(log.created_at), 'dd/MM/yyyy HH:mm') : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4">
+          {isMobile ? (
+            <div className="divide-y divide-slate-800/50">
+              {filteredLogs.map((log, i) => {
+                const project = projects.find(p => p.id === log.project_id);
+                const actorUser = users.find(u => u.email === log.actor);
+                return (
+                  <div key={getSafeKey(log, i, 'audit-mobile')} className="p-4 space-y-3 hover:bg-white/[0.01]">
+                    <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center font-black text-[9px] text-indigo-400">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center font-black text-[10px] text-indigo-400">
                           {actorUser?.name?.charAt(0) || 'S'}
                         </div>
-                        <div className="flex flex-col">
-                          <span className="font-black text-slate-200 tracking-tight leading-none mb-1">{actorUser?.name || log.actor || 'System'}</span>
-                          <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">{log.actor}</span>
+                        <div>
+                          <p className="text-xs font-black text-slate-200">{actorUser?.name || log.actor || 'System'}</p>
+                          <p className="text-[9px] text-slate-500 italic font-mono">
+                            {log.created_at ? format(new Date(log.created_at), 'dd/MM/yyyy HH:mm') : 'N/A'}
+                          </p>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-[10px] text-indigo-400 uppercase font-black tracking-tighter">
-                        {project?.name || 'Central Engine'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                       <span className={cn(
-                         "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded",
-                         log.action?.includes('Create') ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                         log.action?.includes('Delete') ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" :
-                         "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                       )}>
-                        {log.action || 'Unknown'}
-                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                       <button 
-                         onClick={() => setSelectedLog(log)}
-                         className="text-[10px] font-black uppercase text-white transition-colors tracking-widest px-4 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 rounded-lg shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
-                       >
-                         View Details
-                       </button>
-                    </td>
-                  </tr>
+                      <div className={cn(
+                        "px-2 py-0.5 rounded text-[8px] font-black uppercase border",
+                        log.action?.includes('Create') ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                        log.action?.includes('Delete') ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
+                        "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+                      )}>
+                        {log.action}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest mb-1">Project mapping</p>
+                      <p className="text-[10px] text-indigo-400 font-black truncate">{project?.name || 'System Wide'}</p>
+                    </div>
+                    <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5 flex justify-between items-center group">
+                      <p className="text-[11px] text-slate-400 italic leading-relaxed line-clamp-2 grow mr-4">{(log as any).details || 'N/A'}</p>
+                      <button 
+                        onClick={() => setSelectedLog(log)}
+                        className="p-2 bg-indigo-600 rounded-lg text-white"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 );
-              });
-            })()}
-        </tbody>
-          </table>
+              })}
+            </div>
+          ) : (
+            <table className="w-full text-left">
+              <thead className="sticky top-0 z-10 bg-slate-900 shadow-md">
+                <tr className="border-b border-slate-800">
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Timestamp</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Actor (Name)</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Project Mapping</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Operational Action</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] text-right">Insight</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50 text-[12px] text-slate-400">
+                {filteredLogs.map((log, i) => {
+                  const project = projects.find(p => p.id === log.project_id);
+                  const actorUser = users.find(u => u.email === log.actor);
+                  return (
+                    <tr key={getSafeKey(log, i, 'audit-table')} className="hover:bg-white/[0.01] transition-colors group">
+                        <td className="px-6 py-4 font-mono text-[10px] text-slate-500 whitespace-nowrap italic">
+                          {log.created_at ? format(new Date(log.created_at), 'dd/MM/yyyy HH:mm') : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center font-black text-[9px] text-indigo-400">
+                              {actorUser?.name?.charAt(0) || 'S'}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-black text-slate-200 tracking-tight leading-none mb-1">{actorUser?.name || log.actor || 'System'}</span>
+                              <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">{log.actor}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="font-black text-indigo-400/90 tracking-tight">{project?.name || 'System Wide'}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "w-1.5 h-1.5 rounded-full",
+                              log.action?.includes('Create') ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
+                              log.action?.includes('Delete') ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" :
+                              "bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]"
+                            )} />
+                            <span className="font-bold uppercase tracking-widest text-[9px] text-slate-500">{log.action}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button 
+                            onClick={() => setSelectedLog(log)}
+                            className="text-[10px] text-indigo-400 hover:text-indigo-300 font-black uppercase tracking-tighter italic transition-colors underline underline-offset-4 decoration-indigo-500/30"
+                          >
+                            View detail log
+                          </button>
+                        </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
       <AnimatePresence>
         {selectedLog && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -5668,26 +6077,25 @@ function AuditLogView({ logs, projects, users }: { logs: AuditLog[], projects: P
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col"
+              className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
             >
               <div className="p-6 border-b border-slate-800 flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Payload Analysis</h3>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Transaction ID: {selectedLog.id}</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 truncate max-w-[200px]">ID: {selectedLog.id}</p>
                 </div>
                 <button onClick={() => setSelectedLog(null)} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
-              <div className="p-8 overflow-y-auto bg-slate-950/50 grow">
+              <div className="p-4 sm:p-8 overflow-y-auto bg-slate-950/50 grow">
                 <div className="space-y-6">
                   <label className="text-[10px] font-black text-white uppercase tracking-[0.2em] px-2 block border-l-2 border-indigo-500">Field Comparison Logic</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-[10px] font-bold text-slate-500 uppercase">Property</div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-[10px] font-bold text-slate-500 uppercase">Transition</div>
+                  <div className="grid grid-cols-[1fr_2fr] gap-4">
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-[9px] font-bold text-slate-500 uppercase">Property</div>
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-[9px] font-bold text-slate-500 uppercase">Transition</div>
                   </div>
                   {Object.keys({ ...(selectedLog.old_payload || {}), ...(selectedLog.new_payload || {}) }).map((key, ki) => {
-                    // Exclude metadata fields
                     if (['updated_at', 'id', 'created_at', 'project_id', 'task_id', 'user_id', 'created_by_name'].includes(key)) return null;
 
                     const oldVal = (selectedLog.old_payload as any)?.[key];
@@ -5701,12 +6109,12 @@ function AuditLogView({ logs, projects, users }: { logs: AuditLog[], projects: P
                     };
 
                     return (
-                      <div key={`log-detail-payload-${key}-${ki}`} className="grid grid-cols-[150px_1fr] gap-4 items-center py-2 border-b border-white/5">
-                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-wider">{key.replace(/_/g, ' ')}</div>
-                        <div className="flex items-center gap-3 overflow-hidden">
+                      <div key={`log-detail-payload-${key}-${ki}`} className="grid grid-cols-[100px_1fr] sm:grid-cols-[150px_1fr] gap-4 items-center py-3 border-b border-white/5">
+                        <div className="text-[9px] font-black text-slate-500 uppercase tracking-wider break-words">{key.replace(/_/g, ' ')}</div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 overflow-hidden">
                            <div className="line-through text-rose-500/60 text-[10px] font-medium truncate">{formatVal(oldVal)}</div>
-                           <div className="text-slate-700 font-bold">➔</div>
-                           <div className="text-emerald-400 text-[11px] font-black italic">{formatVal(newVal)}</div>
+                           <div className="text-slate-700 font-bold hidden sm:block">➔</div>
+                           <div className="text-emerald-400 text-[11px] font-black italic break-words">{formatVal(newVal)}</div>
                         </div>
                       </div>
                     );
@@ -5807,7 +6215,7 @@ function AuditLogTable({ logs }: { logs: ProjectRescheduleLog[] }) {
   );
 }
 
-function GanttTree({ user, users, roots, map, tasks, projects, expandedRows, onToggleExpand, onUpdateTask, onOpenAudit, onAddSubTask, onDeleteTask, disabled }: any) {
+function GanttTree({ user, users, roots, map, tasks, projects, expandedRows, onToggleExpand, onUpdateTask, onOpenAudit, onAddSubTask, onDeleteTask, disabled, isMobile }: any) {
   
   const renderTaskRows = (task: any, level: number = 0, index: number = 0, parentTask: any = null) => {
     if (!task) return null;
@@ -6101,7 +6509,7 @@ function GanttTree({ user, users, roots, map, tasks, projects, expandedRows, onT
 
   return (
     <div className="overflow-x-auto w-full scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-      <table className="w-full text-left border-collapse min-w-[1600px]">
+      <table className={cn("w-full text-left border-collapse", isMobile ? "min-w-[1000px]" : "min-w-[1600px]")}>
         <thead className="sticky top-0 z-40 bg-slate-900 border-b border-white/5">
           <tr className="shadow-xl">
             <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] min-w-[300px]">Hierarchy & Governance</th>
@@ -6149,13 +6557,416 @@ function GanttTree({ user, users, roots, map, tasks, projects, expandedRows, onT
   );
 }
 
-function TemporalVisualizer({ user, scale, tasks, projectId, hierarchicalTasks, expandedRows, onToggleExpand, setTasks, projects, isGlobalView, onSetFocus }: { user: any, scale: ViewScale, tasks: Task[], projectId?: string | null, hierarchicalTasks: any, expandedRows: Set<string>, onToggleExpand: (id: string) => void, setTasks: React.Dispatch<React.SetStateAction<Task[]>>, projects: Project[], isGlobalView?: boolean, onSetFocus?: (id: string) => void }) {
+function MobileTaskCard({ task, onToggleExpand, isExpanded, onUpdateTask, onDeleteTask, expandedRows, level = 0, gridStart, totalDuration }: any) {
+  const [isEditing, setIsEditing] = useState(false);
+  const hasChildren = task.children && task.children.length > 0;
+  
+  const fromDate = task.start_time ? new Date(task.start_time) : null;
+  const toDate = task.end_time ? new Date(task.end_time) : null;
+  const now = new Date();
+  
+  const progress = useMemo(() => {
+    if (!fromDate || !toDate) return 0;
+    const total = toDate.getTime() - fromDate.getTime();
+    if (total <= 0) return 0;
+    const current = now.getTime() - fromDate.getTime();
+    return Math.min(100, Math.max(0, (current / total) * 100));
+  }, [fromDate, toDate, now]);
+
+  const ganttBar = useMemo(() => {
+    if (!fromDate || !toDate || !gridStart || !totalDuration) return null;
+    const left = ((fromDate.getTime() - gridStart.getTime()) / totalDuration) * 100;
+    const width = ((toDate.getTime() - fromDate.getTime()) / totalDuration) * 100;
+    return { left: `${Math.max(0, left)}%`, width: `${Math.max(1, width)}%` };
+  }, [fromDate, toDate, gridStart, totalDuration]);
+
+  return (
+    <div className={cn(
+      "bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden mb-3 shadow-xl shadow-black/20",
+      level > 0 && "ml-3 border-l-2 border-l-indigo-500/30"
+    )}>
+      <div 
+        className="p-4"
+        onClick={() => hasChildren && onToggleExpand(task.id)}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] font-mono text-slate-500 font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">{task.custom_id}</span>
+            {hasChildren && (
+              <span className={cn("transition-transform duration-200", isExpanded ? "text-indigo-400 rotate-0" : "text-slate-500 rotate-[-90deg]")}>
+                <ChevronDown className="w-4 h-4" />
+              </span>
+            )}
+          </div>
+          <StatusBadge status={task.status} />
+        </div>
+        
+        <div className="flex justify-between items-start mb-3 gap-4">
+          <h3 className={cn(
+            "text-white font-black tracking-tight leading-tight",
+            level === 0 ? "text-base uppercase italic" : "text-sm"
+          )}>
+            {task.title || 'Untitled Task'}
+          </h3>
+          <div className="shrink-0 text-right">
+             <span className="text-[10px] font-black text-indigo-400 block tracking-widest">{formatWorkday(task.man_hours || 0)}</span>
+             <span className="text-[8px] font-black text-slate-600 block uppercase">Allocated</span>
+          </div>
+        </div>
+
+        {/* Condensed Timeline Bar */}
+        {ganttBar && (
+          <div className="mb-4 space-y-1.5">
+            <div className="flex justify-between items-center text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] px-1">
+              <span>{format(fromDate!, 'dd MMM')}</span>
+              <span className="text-slate-700 italic">Timeline View</span>
+              <span>{format(toDate!, 'dd MMM')}</span>
+            </div>
+            <div className="h-6 bg-slate-950/80 rounded-lg relative overflow-hidden border border-white/5">
+              {/* Scale Tick Markers */}
+              <div className="absolute inset-0 flex justify-between px-2 pointer-events-none opacity-10">
+                {[...Array(10)].map((_, i) => <div key={i} className="w-px h-full bg-white" />)}
+              </div>
+              
+              <motion.div 
+                initial={{ opacity: 0, scaleX: 0 }}
+                animate={{ opacity: 1, scaleX: 1 }}
+                style={{ 
+                  left: ganttBar.left, 
+                  width: ganttBar.width,
+                  transformOrigin: 'left'
+                }}
+                className={cn(
+                  "absolute top-1 bottom-1 rounded-full shadow-[0_0_12px] z-10",
+                  level === 0 
+                    ? "bg-gradient-to-r from-purple-500 via-indigo-500 to-indigo-600 shadow-purple-500/40" 
+                    : "bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 shadow-cyan-400/40"
+                )}
+              >
+                {/* Progress highlight within bar */}
+                <div className="absolute inset-x-0 bottom-0 h-0.5 bg-white/20" />
+              </motion.div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center justify-between pt-4 border-t border-slate-800/50">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
+               <UserIcon className="w-4 h-4 text-indigo-400" />
+            </div>
+            <div>
+              <span className="text-[8px] text-slate-500 font-black uppercase block leading-none mb-0.5 tracking-[0.1em]">Lead PIC</span>
+              <span className="text-[11px] text-slate-200 font-black uppercase tracking-tight">{task.assignee || 'UNASSIGNED'}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+              className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl transition-all active:scale-90 border border-indigo-500/20 shadow-lg shadow-indigo-900/10"
+            >
+              <Edit3 className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onDeleteTask(task.id); }}
+              className="p-3 bg-rose-500/10 text-rose-400 rounded-xl transition-all active:scale-90 border border-rose-500/20 shadow-lg shadow-rose-900/10"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isEditing && (
+          <MobileTaskEditModal 
+            task={task}
+            onClose={() => setIsEditing(false)}
+            onUpdate={onUpdateTask}
+          />
+        )}
+        {isExpanded && hasChildren && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-t border-slate-800"
+          >
+            <div className="p-2">
+              {task.children.map((child: any) => (
+                <MobileTaskCard 
+                  key={child.id}
+                  task={child}
+                  onToggleExpand={onToggleExpand}
+                  isExpanded={expandedRows.has(child.id)}
+                  onUpdateTask={onUpdateTask}
+                  onDeleteTask={onDeleteTask}
+                  expandedRows={expandedRows}
+                  level={level + 1}
+                  gridStart={gridStart}
+                  totalDuration={totalDuration}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function MobileTaskEditModal({ task, onClose, onUpdate }: { task: Task, onClose: () => void, onUpdate: (id: string, field: string, value: any) => void }) {
+  const [formData, setFormData] = useState({
+    title: task.title || '',
+    assignee: task.assignee || '',
+    status: task.status || TaskStatus.ON_PROGRESS,
+    start_time: task.start_time ? format(new Date(task.start_time), 'yyyy-MM-dd') : '',
+    end_time: task.end_time ? format(new Date(task.end_time), 'yyyy-MM-dd') : '',
+    man_hours: task.man_hours || 0
+  });
+
+  const handleSave = () => {
+    // Check if anything changed and update
+    if (formData.title !== task.title) onUpdate(task.id, 'title', formData.title);
+    if (formData.assignee !== task.assignee) onUpdate(task.id, 'assignee', formData.assignee);
+    if (formData.status !== task.status) onUpdate(task.id, 'status', formData.status);
+    if (formData.man_hours !== task.man_hours) onUpdate(task.id, 'man_hours', formData.man_hours);
+    
+    const currentStart = task.start_time ? format(new Date(task.start_time), 'yyyy-MM-dd') : '';
+    if (formData.start_time !== currentStart) {
+      const newDate = new Date(`${formData.start_time}T08:00:00`).toISOString();
+      onUpdate(task.id, 'start_time', newDate);
+    }
+    
+    const currentEnd = task.end_time ? format(new Date(task.end_time), 'yyyy-MM-dd') : '';
+    if (formData.end_time !== currentEnd) {
+      const newDate = new Date(`${formData.end_time}T17:00:00`).toISOString();
+      onUpdate(task.id, 'end_time', newDate);
+    }
+    
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex flex-col bg-slate-950">
+      <motion.div 
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        className="flex-1 flex flex-col"
+      >
+        <div className="h-20 border-b border-slate-800 bg-slate-900 flex items-center justify-between px-6 shrink-0">
+          <div className="flex items-center gap-3">
+             <div onClick={onClose} className="p-2 bg-slate-800 rounded-lg text-slate-400">
+                <ArrowLeft className="w-6 h-6" />
+             </div>
+             <div>
+               <h2 className="text-lg font-black text-white italic uppercase tracking-tighter">Edit <span className="text-indigo-500">Task</span></h2>
+               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{task.custom_id}</p>
+             </div>
+          </div>
+          <button 
+            onClick={handleSave}
+            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-indigo-600/20"
+          >
+            Save Changes
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+          <div className="space-y-3">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Task Title</label>
+            <input 
+              type="text"
+              value={formData.title}
+              onChange={e => setFormData(p => ({ ...p, title: e.target.value }))}
+              placeholder="e.g. Design UI/UX"
+              className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:border-indigo-500 transition-all text-lg"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Start Date</label>
+              <input 
+                type="date"
+                value={formData.start_time}
+                onChange={e => setFormData(p => ({ ...p, start_time: e.target.value }))}
+                className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-4 text-white font-bold outline-none focus:border-indigo-500 transition-all"
+              />
+            </div>
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">End Date</label>
+              <input 
+                type="date"
+                value={formData.end_time}
+                onChange={e => setFormData(p => ({ ...p, end_time: e.target.value }))}
+                className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-4 text-white font-bold outline-none focus:border-indigo-500 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Assignee / PIC</label>
+            <div className="flex items-center gap-4 bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 overflow-hidden">
+               <UserIcon className="w-5 h-5 text-slate-500 shrink-0" />
+               <input 
+                 type="text"
+                 value={formData.assignee}
+                 onChange={e => setFormData(p => ({ ...p, assignee: e.target.value }))}
+                 placeholder="Search personnel..."
+                 className="flex-1 bg-transparent text-white font-bold outline-none"
+               />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Task Status</label>
+            <div className="grid grid-cols-2 gap-3">
+              {[TaskStatus.ON_PROGRESS, TaskStatus.REVIEW, TaskStatus.REVISION, TaskStatus.DONE].map(status => (
+                <button
+                  key={status}
+                  onClick={() => setFormData(p => ({ ...p, status }))}
+                  className={cn(
+                    "py-4 rounded-2xl border font-black uppercase text-[10px] tracking-widest transition-all",
+                    formData.status === status 
+                      ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20 scale-95" 
+                      : "bg-slate-900 border-slate-800 text-slate-500"
+                  )}
+                >
+                  {status.replace(/_/g, ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Man-Hours Alocation</label>
+            <div className="flex items-center gap-6 bg-slate-900 border border-slate-800 rounded-2xl p-6">
+               <div className="flex-1">
+                 <input 
+                   type="range"
+                   min="0"
+                   max="100"
+                   step="0.5"
+                   value={formData.man_hours}
+                   onChange={e => setFormData(p => ({ ...p, man_hours: parseFloat(e.target.value) }))}
+                   className="w-full accent-indigo-500 h-2 bg-slate-800 rounded-full appearance-none cursor-pointer"
+                 />
+               </div>
+               <div className="w-24 shrink-0 text-right">
+                  <span className="text-2xl font-black text-indigo-400">{formData.man_hours}</span>
+                  <span className="text-[10px] font-black text-slate-600 ml-1">MH</span>
+               </div>
+            </div>
+            <p className="text-[9px] text-slate-600 uppercase font-bold tracking-widest text-center mt-2">
+              Equivalent to ≈ {formatWorkday(formData.man_hours)}
+            </p>
+          </div>
+          
+          <div className="pt-10">
+            <button 
+              onClick={onClose}
+              className="w-full py-5 bg-slate-900 text-slate-500 font-black uppercase text-xs tracking-widest rounded-2xl border border-slate-800"
+            >
+              Cancel & Discard
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function MobileTemporalView({ hierarchicalTasks, expandedRows, onToggleExpand, onUpdateTask, onDeleteTask, gridStart, gridEnd, totalDuration, monthIntervals }: any) {
+  return (
+    <div className="flex flex-col h-full bg-slate-950">
+      {/* Month Header for Mobile List */}
+      <div className="h-10 border-b border-white/5 bg-slate-900/50 flex shrink-0 sticky top-0 z-20 backdrop-blur-md">
+        {monthIntervals.map((m: any, i: number) => (
+          <div 
+            key={`mob-month-${i}`}
+            style={{ width: `${m.width}%` }}
+            className="h-full border-r border-white/5 flex items-center justify-center"
+          >
+            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter italic">
+              {format(m.date, 'MMM')}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {hierarchicalTasks.roots.map((root: any) => (
+          <MobileTaskCard 
+            key={root.id}
+            task={root}
+            onToggleExpand={onToggleExpand}
+            isExpanded={expandedRows.has(root.id)}
+            onUpdateTask={onUpdateTask}
+            onDeleteTask={onDeleteTask}
+            expandedRows={expandedRows}
+            gridStart={gridStart}
+            totalDuration={totalDuration}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TemporalVisualizer({ user, scale, tasks, projectId, hierarchicalTasks, expandedRows, onToggleExpand, setTasks, projects, isGlobalView, onSetFocus, isMobile, onUpdateTask, onDeleteTask }: { user: any, scale: ViewScale, tasks: Task[], projectId?: string | null, hierarchicalTasks: any, expandedRows: Set<string>, onToggleExpand: (id: string) => void, setTasks: React.Dispatch<React.SetStateAction<Task[]>>, projects: Project[], isGlobalView?: boolean, onSetFocus?: (id: string) => void, isMobile?: boolean, onUpdateTask?: any, onDeleteTask?: any }) {
   const { gridStart, gridEnd, intervals, totalDuration } = useMemo(() => {
     return calculateTimelineRange(scale, tasks, projects, projectId, isGlobalView);
   }, [tasks, scale, projects, projectId, isGlobalView]);
 
-  const CELL_WIDTH = scale === 'HOUR' ? 80 : 100;
-  const gridWidth = intervals.length * CELL_WIDTH;
+  // Header intervals for Month and Week
+  const monthIntervals = useMemo(() => {
+    try {
+      const months = eachMonthOfInterval({ start: gridStart, end: gridEnd });
+      return months.map(mStart => {
+        const mEnd = endOfMonth(mStart);
+        const actualEnd = mEnd.getTime() > gridEnd.getTime() ? gridEnd : mEnd;
+        const actualStart = mStart.getTime() < gridStart.getTime() ? gridStart : mStart;
+        return {
+          date: mStart,
+          width: ((actualEnd.getTime() - actualStart.getTime()) / totalDuration) * 100
+        };
+      });
+    } catch (e) { return []; }
+  }, [gridStart, gridEnd, totalDuration]);
+
+  const weekIntervals = useMemo(() => {
+    try {
+      const weeks = eachWeekOfInterval({ start: gridStart, end: gridEnd });
+      return weeks.map(wStart => {
+        const wEnd = endOfWeek(wStart);
+        const actualEnd = wEnd.getTime() > gridEnd.getTime() ? gridEnd : wEnd;
+        const actualStart = wStart.getTime() < gridStart.getTime() ? gridStart : wStart;
+        return {
+          date: wStart,
+          width: ((actualEnd.getTime() - actualStart.getTime()) / totalDuration) * 100,
+          weekNum: format(wStart, 'w')
+        };
+      });
+    } catch (e) { return []; }
+  }, [gridStart, gridEnd, totalDuration]);
+
+  if (isMobile) {
+    return (
+      <MobileTemporalView 
+        hierarchicalTasks={hierarchicalTasks}
+        expandedRows={expandedRows}
+        onToggleExpand={onToggleExpand}
+        onUpdateTask={onUpdateTask}
+        onDeleteTask={onDeleteTask}
+        gridStart={gridStart}
+        gridEnd={gridEnd}
+        totalDuration={totalDuration}
+        monthIntervals={monthIntervals}
+      />
+    );
+  }
 
   // RED NEEDLE: Precision Today Indicator
   const todayPos = useMemo(() => {
@@ -6166,14 +6977,17 @@ function TemporalVisualizer({ user, scale, tasks, projectId, hierarchicalTasks, 
   }, [gridStart, gridEnd, totalDuration]);
 
   return (
-    <div className="flex h-full w-full overflow-x-auto scrollbar-hide">
-      <div className="flex min-w-max h-full">
+    <div className="flex h-full w-full overflow-hidden bg-slate-950 font-sans">
+      <div className="flex w-full h-full relative">
         {/* Left Column: Task/Project Labels */}
-        <div className="w-[280px] border-r border-slate-800 bg-slate-950/90 sticky left-0 z-30 flex flex-col shrink-0">
-          <div className="h-10 border-b border-white/5 flex items-center px-6 bg-slate-900/95 sticky top-0 shadow-lg">
-            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Entity Structure</span>
+        <div className="w-[300px] border-r border-slate-800 bg-slate-950/95 sticky left-0 z-30 flex flex-col shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.5)]">
+          <div className="h-20 border-b border-indigo-500/20 flex flex-col justify-center px-6 bg-slate-900/95 sticky top-0 z-40 backdrop-blur-md">
+            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] mb-1">Timeline Engine</span>
+            <span className="text-[9px] text-slate-500 font-bold italic tracking-tighter truncate">
+              {format(gridStart, 'dd MMM')} — {format(gridEnd, 'dd MMM yyyy')}
+            </span>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 overflow-y-auto scrollbar-hide py-4">
             {(() => {
                const uniqueRoots = (hierarchicalTasks.roots || []).filter((v: any, i: number, a: any[]) => !!v && a.findIndex(t => t.id === v.id) === i);
                if (uniqueRoots.length === 0) {
@@ -6257,34 +7071,48 @@ function TemporalVisualizer({ user, scale, tasks, projectId, hierarchicalTasks, 
           </div>
         </div>
 
-        <div className="flex-1 overflow-visible relative" style={{ width: gridWidth }}>
-          {/* Time Header */}
-          <div className="flex sticky top-0 bg-slate-900/95 backdrop-blur-md border-b border-white/5 z-20 h-10 shadow-lg">
-            {(intervals || []).map((dt, i) => {
-              if (!dt || isNaN(dt.getTime())) return null;
-              const iso = dt.toISOString();
-              return (
+        <div className="flex-1 overflow-hidden relative flex flex-col h-full bg-slate-950">
+          {/* Time Header Refactor */}
+          <div className="sticky top-0 z-40 shrink-0 select-none backdrop-blur-xl border-b border-white/5 shadow-2xl">
+            {/* Top Row: Months */}
+            <div className="h-10 flex border-b border-white/5 bg-slate-900/80">
+              {monthIntervals.map((m, i) => (
                 <div 
-                  key={`${iso}-${i}`} 
-                  style={{ width: CELL_WIDTH }}
-                  className="flex-shrink-0 border-r border-white/5 flex flex-col justify-center px-3"
+                  key={`month-${i}`}
+                  style={{ width: `${m.width}%` }}
+                  className="shrink-0 border-r border-white/5 flex items-center justify-center px-2 bg-slate-900/50"
                 >
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                    {scale === 'HOUR' ? format(dt, 'HH:mm') : scale === 'MONTH' ? format(dt, 'MMM yyyy') : format(dt, 'MMM dd')}
-                  </span>
-                  <span className="text-[9px] text-slate-600 font-black uppercase tracking-widest opacity-60">
-                     {scale === 'HOUR' ? 'REL' : format(dt, 'EEE')}
+                  <span className="text-[11px] font-black text-white italic uppercase tracking-widest drop-shadow-md">
+                    {format(m.date, 'MMMM yyyy')}
                   </span>
                 </div>
-              );
-            })}
+              ))}
+            </div>
+            {/* Bottom Row: Weeks */}
+            <div className="h-10 flex bg-slate-950/40">
+              {weekIntervals.map((w, i) => (
+                <div 
+                  key={`week-${i}`}
+                  style={{ width: `${w.width}%` }}
+                  className="shrink-0 border-r border-white/5 flex flex-col justify-center items-center px-1 group"
+                >
+                  <span className="text-[9px] font-black text-slate-400 group-hover:text-indigo-400 transition-colors uppercase tracking-widest">
+                    WEEK {w.weekNum}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Grid Lines */}
-          <div className="relative min-h-full">
+          <div className="flex-1 relative overflow-y-auto scrollbar-hide">
+            {/* Grid Lines (Weeks) */}
             <div className="absolute inset-0 flex pointer-events-none z-0">
-              {(intervals || []).map((dt, i) => (
-                <div key={`grid-line-${i}`} style={{ width: CELL_WIDTH }} className="flex-shrink-0 border-r border-white/5" />
+              {weekIntervals.map((w, i) => (
+                <div 
+                  key={`grid-line-${i}`} 
+                  style={{ width: `${w.width}%` }} 
+                  className="h-full border-r border-white-[0.03] bg-gradient-to-b from-white/[0.01] to-transparent" 
+                />
               ))}
             </div>
 
@@ -6426,7 +7254,7 @@ function GanttBar({ user, task, tasks, projects, setTasks, scale, gridStart, gri
     setIsDragging(true);
     setShowPopover(false);
     const startX = e.clientX;
-    const container = e.currentTarget.closest('[style*="width"]');
+    const container = e.currentTarget.parentElement;
     const containerWidth = container?.clientWidth || 1000;
     
     const handleMove = (moveEvent: PointerEvent) => {
