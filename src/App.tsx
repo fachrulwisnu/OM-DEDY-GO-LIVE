@@ -4548,7 +4548,10 @@ function GanttDetailView({
 
     const validDates = pTasks
       .flatMap(t => [t.start_time, t.end_time])
-      .filter(d => Boolean(d) && !isNaN(new Date(d).getTime()));
+      .filter(d => {
+        const ts = d ? new Date(d).getTime() : 0;
+        return ts > 86400000 && !isNaN(ts); // Filter out 1970/Invalid dates
+      });
 
     const minStart = validDates.length > 0 ? new Date(Math.min(...validDates.map(d => new Date(d).getTime()))) : null;
     const maxEnd = validDates.length > 0 ? new Date(Math.max(...validDates.map(d => new Date(d).getTime()))) : null;
@@ -6315,16 +6318,28 @@ function GanttBar({ user, task, tasks, projects, setTasks, scale, gridStart, gri
   const viewStartMs = startOfDay(gridStart).getTime();
   const totalViewRangeMs = totalDuration;
 
-  // DUAL-DATE PRECISION ENGINE
-  const fromMs = task.start_time ? startOfDay(new Date(task.start_time)).getTime() : null;
-  const toMs = task.end_time ? startOfDay(new Date(task.end_time)).getTime() : null;
+  // DUAL-DATE PRECISION ENGINE with Robust Fallbacks
+  const fromMs = useMemo(() => {
+    const d = task.start_time || (task as any).from_date || (task as any).start_date;
+    if (!d) return null;
+    const date = new Date(d);
+    return isNaN(date.getTime()) ? null : startOfDay(date).getTime();
+  }, [task.start_time, (task as any).from_date, (task as any).start_date]);
+
+  const toMs = useMemo(() => {
+    const d = task.end_time || (task as any).to_date || (task as any).end_date;
+    if (!d) return null;
+    const date = new Date(d);
+    return isNaN(date.getTime()) ? null : startOfDay(date).getTime();
+  }, [task.end_time, (task as any).to_date, (task as any).end_date]);
 
   const left = fromMs !== null ? ((fromMs - viewStartMs) / totalViewRangeMs) * 100 : 0;
   const width = (fromMs !== null && toMs !== null) ? ((toMs - fromMs) / totalViewRangeMs) * 100 : 0;
 
   const isVisible = (fromMs !== null && toMs !== null) && 
                     (toMs >= viewStartMs) && 
-                    (fromMs <= gridEnd.getTime());
+                    (fromMs <= gridEnd.getTime()) &&
+                    fromMs > 86400000; // Ignore dates near 1970
 
   if (!isVisible || fromMs === null || toMs === null) return null;
 
@@ -6379,7 +6394,7 @@ function GanttBar({ user, task, tasks, projects, setTasks, scale, gridStart, gri
   const timeProgress = Math.min(100, Math.max(0, ((new Date().getTime() - fromMs) / (toMs - fromMs)) * 100));
 
   return (
-    <div key={`${task.custom_id || task.id}-${index}`} className={cn("relative flex items-center w-full", isProjectBar ? "h-16" : (isLevel1 ? "h-14" : "h-10"))}>
+    <div key={`${task.id}-${index}-${Math.random()}`} className={cn("relative flex items-center w-full", isProjectBar ? "h-16" : (isLevel1 ? "h-14" : "h-10"))}>
       <motion.div
         initial={false}
         animate={{ 

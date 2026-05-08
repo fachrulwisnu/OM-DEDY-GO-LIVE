@@ -40,12 +40,12 @@ export const calculateParentRange = (children: Task[]): { from_date: string | nu
 
   const startDates = children
     .map(t => normalizeDate(t.start_time))
-    .filter((d): d is Date => d !== null)
+    .filter((d): d is Date => d !== null && d.getTime() > 86400000)
     .map(d => d.getTime());
   
   const endDates = children
     .map(t => normalizeDate(t.end_time))
-    .filter((d): d is Date => d !== null)
+    .filter((d): d is Date => d !== null && d.getTime() > 86400000)
     .map(d => d.getTime());
 
   if (startDates.length === 0) return { from_date: null, to_date: null };
@@ -63,27 +63,38 @@ export const calculateTimelineRange = (
   projectId?: string | null,
   isGlobalView?: boolean
 ): GanttTimelineRange => {
+  // THE "2026 ANCHOR" PROTOCOL:
+  // We prioritize actual task/project dates. 
+  // If nothing is found, we anchor to NOW (2026), never 1970.
   let minTs = Date.now();
-  let maxTs = Date.now() + 86400000 * 7;
+  let maxTs = Date.now() + 86400000 * 30; // Default 1 month ahead
   
   const project = projectId ? projects.find(p => p.id === projectId) : null;
   const projectTasks = projectId ? (tasks || []).filter(t => t.project_id === projectId) : (tasks || []);
 
-  // THE "MATHEMATICAL ANCHOR" PROTOCOL:
-  // 1. Identify all relevant dates (tasks + project boundaries)
+  // 1. Collect all valid timestamps from tasks and projects
   const taskDates = (projectTasks || []).flatMap(t => {
-    const s = t.start_time || (t as any).start_date;
-    const e = t.end_time || (t as any).end_date;
+    // Check multiple potential field names for robustness
+    const s = t.start_time || (t as any).from_date || (t as any).start_date;
+    const e = t.end_time || (t as any).to_date || (t as any).end_date;
+    
+    const startTime = s ? new Date(s).getTime() : null;
+    const endTime = e ? new Date(e).getTime() : null;
+    
     return [
-      s ? new Date(s).getTime() : null,
-      e ? new Date(e).getTime() : null
+      startTime && startTime > 86400000 ? startTime : null, // Ignore dates near 1970
+      endTime && endTime > 86400000 ? endTime : null
     ];
   });
 
-  const pDates = (isGlobalView ? (projects || []) : (project ? [project] : [])).flatMap(p => [
-    p.start_date ? new Date(p.start_date).getTime() : null,
-    p.end_date ? new Date(p.end_date).getTime() : null
-  ]);
+  const pDates = (isGlobalView ? (projects || []) : (project ? [project] : [])).flatMap(p => {
+    const s = p.start_date ? new Date(p.start_date).getTime() : null;
+    const e = p.end_date ? new Date(p.end_date).getTime() : null;
+    return [
+      s && s > 86400000 ? s : null,
+      e && e > 86400000 ? e : null
+    ];
+  });
 
   const validDates = [...taskDates, ...pDates].filter((t): t is number => t !== null && !isNaN(t));
 
@@ -91,34 +102,37 @@ export const calculateTimelineRange = (
     minTs = Math.min(...validDates);
     maxTs = Math.max(...validDates);
   } else if (project && project.start_date) {
-    minTs = new Date(project.start_date).getTime();
-    maxTs = project.end_date ? new Date(project.end_date).getTime() : minTs + 86400000 * 7;
+    const ps = new Date(project.start_date).getTime();
+    if (ps > 86400000) {
+      minTs = ps;
+      maxTs = project.end_date ? new Date(project.end_date).getTime() : minTs + 86400000 * 30;
+    }
   }
 
-  // Fallback for completely empty state
-  if (isNaN(minTs) || isNaN(maxTs)) {
-    minTs = Date.now();
-    maxTs = Date.now() + 86400000 * 7;
-  }
-
-  // THE "MATHEMATICAL ANCHOR" PROTOCOL: 
-  // No buffer at the start to ensure 0% alignment with the absolute earliest date
-  const start = new Date(minTs);
-  const bufferTail = scale === 'HOUR' ? 0 : (scale === 'MONTH' ? 30 : 5);
-  const end = addDays(new Date(maxTs), isGlobalView ? 10 : bufferTail);
+  // 2. Padding/Anchor adjustments
+  // Grid start is earliest minus 7 days for visual breathing room
+  // Unless scale is HOUR, then we just need a few hours.
+  const paddingDays = scale === 'HOUR' ? 0.5 : (scale === 'MONTH' ? 14 : 7);
+  const start = subDays(new Date(minTs), paddingDays);
+  
+  // Ensure we have at least some range
+  const minRange = scale === 'MONTH' ? 86400000 * 90 : 86400000 * 14;
+  const end = new Date(Math.max(maxTs + (86400000 * 7), start.getTime() + minRange));
 
   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+     const fallback = startOfDay(new Date());
      return {
-        gridStart: new Date(),
-        gridEnd: addDays(new Date(), 7),
+        gridStart: fallback,
+        gridEnd: addDays(fallback, 30),
         intervals: [],
-        totalDuration: 86400000 * 7
+        totalDuration: 86400000 * 30
       };
   }
 
   let generatedIntervals: Date[] = [];
   const weekOpts = { weekStartsOn: 1 as 0 | 1 | 2 | 3 | 4 | 5 | 6 };
 
+  // 3. Interval generation based on resolution
   switch(scale) {
     case 'HOUR':
       generatedIntervals = eachHourOfInterval({ start: startOfDay(start), end: endOfDay(end) });
@@ -127,12 +141,14 @@ export const calculateTimelineRange = (
       generatedIntervals = eachDayOfInterval({ start: startOfDay(start), end: endOfDay(end) });
       break;
     case 'WEEK':
+      // Ensure we start at the beginning of the week
       generatedIntervals = eachWeekOfInterval({ 
         start: startOfWeek(start, weekOpts), 
         end: endOfWeek(end, weekOpts) 
       });
       break;
     case 'MONTH':
+      // Ensure we start at the beginning of the month
       generatedIntervals = eachMonthOfInterval({ 
         start: startOfMonth(start), 
         end: dateFnsEndOfMonth(end) 
