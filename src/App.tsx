@@ -20,6 +20,7 @@ import {
   Users,
   ShieldAlert,
   FolderKanban,
+  RefreshCw,
   AlertCircle,
   ChevronLeft,
   ChevronRight,
@@ -859,17 +860,21 @@ export default function App() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [refreshKey, setRefreshKey] = useState(0);
   const [rescheduleRequests, setRescheduleRequests] = useState<any[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
 
   const fetchRescheduleRequests = async () => {
     if (!canAccessReschedule) return;
+    setRequestsLoading(true);
     try {
       const data = await taskService.getRescheduleRequests();
-      setRescheduleRequests(data);
+      setRescheduleRequests(data || []);
       // BUG FIX: Count only pending requests for the badge
       const pendingCount = (data || []).filter(r => r.status === 'Pending').length;
       setPendingRescheduleCount(pendingCount);
     } catch (err) {
       console.error("Failed to fetch reschedule requests:", err);
+    } finally {
+      setRequestsLoading(false);
     }
   };
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
@@ -1684,6 +1689,7 @@ export default function App() {
            {activeView === 'RESCHEDULE' && (
              <RescheduleRequestsView 
                requests={rescheduleRequests}
+               isLoading={requestsLoading}
                onRefresh={() => {
                  fetchRescheduleRequests();
                  setRefreshKey(prev => prev + 1);
@@ -5291,12 +5297,22 @@ function EditPersonnelModal({
   );
 }
 
-function RescheduleRequestsView({ requests, onRefresh, user }: { requests: any[], onRefresh: () => void, user: any }) {
+function RescheduleRequestsView({ requests, onRefresh, user, isLoading }: { requests: any[], onRefresh: () => void, user: any, isLoading?: boolean }) {
   const [confirmData, setConfirmData] = useState<{ id: string, status: 'Approved' | 'Rejected' } | null>(null);
   const [activeTab, setActiveTab] = useState<'PENDING' | 'HISTORY'>('PENDING');
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  if (!user || (!user.access_level?.toLowerCase().includes('admin'))) {
+  useEffect(() => {
+    onRefresh();
+  }, []);
+
+  const isAdminAccess = useMemo(() => {
+    if (!user) return false;
+    const level = user.access_level?.toLowerCase() || '';
+    return level.includes('admin');
+  }, [user]);
+
+  if (!user || !isAdminAccess) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center space-y-4">
@@ -5371,31 +5387,47 @@ function RescheduleRequestsView({ requests, onRefresh, user }: { requests: any[]
           </div>
         </div>
 
-        <div className="flex bg-slate-900/50 p-1 rounded-xl border border-white/5">
+        <div className="flex items-center gap-3">
           <button 
-            onClick={() => setActiveTab('PENDING')}
-            className={cn(
-              "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
-              activeTab === 'PENDING' ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20" : "text-slate-500 hover:text-slate-300"
-            )}
+            onClick={onRefresh}
+            disabled={isLoading}
+            className="p-2.5 bg-slate-900/50 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition-all disabled:opacity-50"
+            title="Refresh Requests"
           >
-            Pending Requests
-            <span className="bg-black/40 px-1.5 py-0.5 rounded-md text-[8px]">{pendingRequests.length}</span>
+            <RefreshCw className={cn("w-5 h-5", isLoading && "animate-spin")} />
           </button>
-          <button 
-            onClick={() => setActiveTab('HISTORY')}
-            className={cn(
-              "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
-              activeTab === 'HISTORY' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
-            )}
-          >
-            Resolution History
-          </button>
+
+          <div className="flex bg-slate-900/50 p-1 rounded-xl border border-white/5">
+            <button 
+              onClick={() => setActiveTab('PENDING')}
+              className={cn(
+                "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+                activeTab === 'PENDING' ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20" : "text-slate-500 hover:text-slate-300"
+              )}
+            >
+              Pending Requests
+              <span className="bg-black/40 px-1.5 py-0.5 rounded-md text-[8px]">{pendingRequests.length}</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('HISTORY')}
+              className={cn(
+                "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+                activeTab === 'HISTORY' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+              )}
+            >
+              Resolution History
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto pr-4 scrollbar-hide">
-        {currentRequests.length === 0 ? (
+        {isLoading ? (
+          <div className="h-full bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-20 flex flex-col items-center justify-center gap-4">
+             <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin" />
+             <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Fetching requests...</p>
+          </div>
+        ) : currentRequests.length === 0 ? (
           <div className="h-full bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-20 flex flex-col items-center justify-center gap-4">
             <History className="w-16 h-16 text-slate-700" />
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">No {activeTab === 'PENDING' ? 'Pending' : 'Resolved'} Requests</p>
